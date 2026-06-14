@@ -14,32 +14,27 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-async function startServer() {
-  const PORT = 3000;
+const dbUrl = process.env.TURSO_DATABASE_URL || "libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io";
+const dbToken = process.env.TURSO_AUTH_TOKEN || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODEyNDM3OTQsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.RuNySR7j0ez6Mp_3ciTHJzc5oMoM7ByMg0g0T1kle8s-1RIzA7N_RY-RGgxvKbaAX-K3PECMPjkWtofEYF0MDQ";
 
-  app.use(express.json());
+const db = createClient({
+  url: dbUrl,
+  authToken: dbToken,
+});
 
-  // Use provided Turso credentials (In production these should be in the environment variables via secrets)
-  const dbUrl = process.env.TURSO_DATABASE_URL || "libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io";
-  const dbToken = process.env.TURSO_AUTH_TOKEN || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODEyNDM3OTQsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.RuNySR7j0ez6Mp_3ciTHJzc5oMoM7ByMg0g0T1kle8s-1RIzA7N_RY-RGgxvKbaAX-K3PECMPjkWtofEYF0MDQ";
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
 
-  const db = createClient({
-    url: dbUrl,
-    authToken: dbToken,
-  });
+// Initialize Default Groq AI Client (Global SEO)
+const groq = new Groq({ 
+  apiKey: process.env.GROQ_API_KEY || "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" 
+});
 
-  const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
-  
-  // Initialize Default Groq AI Client (Global SEO)
-  const groq = new Groq({ 
-    apiKey: process.env.GROQ_API_KEY || "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" 
-  });
+// Initialize Product Generation Groq Client
+const productGroq = new Groq({
+  apiKey: process.env.PRODUCT_GROQ_API_KEY || "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"
+});
 
-  // Initialize Product Generation Groq Client
-  const productGroq = new Groq({
-    apiKey: process.env.PRODUCT_GROQ_API_KEY || "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"
-  });
-
+async function initializeDatabase() {
   // Initialize Database Tables
   try {
     // Users table
@@ -449,6 +444,15 @@ async function startServer() {
   } catch (error) {
     console.error("Failed to initialize database:", error);
   }
+}
+
+function startServer() {
+  const PORT = 3000;
+
+  app.use(express.json());
+
+  // Trigger asynchronous database schema setup/migration/seeding without blocking the module load / router registration
+  initializeDatabase().catch(console.error);
 
   // --- Automatic Tag & SEO Rotation Logic (Every 15 Days) ---
   const rotateBlogTags = async () => {
@@ -537,13 +541,15 @@ async function startServer() {
   };
 
   // Run SEO update on startup if empty, otherwise daily at midnight
-  try {
-    const seoCheck = await db.execute("SELECT COUNT(*) as count FROM seo_data");
-    const count = seoCheck.rows[0].count as number;
-    if (count === 0) {
-      updateUKSEO();
-    }
-  } catch(e) {}
+  (async () => {
+    try {
+      const seoCheck = await db.execute("SELECT COUNT(*) as count FROM seo_data");
+      const count = seoCheck.rows[0].count as number;
+      if (count === 0) {
+        updateUKSEO();
+      }
+    } catch(e) {}
+  })();
 
   // --- AI Trend Suggestion Autonomous Scraper Functions ---
   
@@ -1026,14 +1032,16 @@ async function startServer() {
   }
 
   // Pre-seed trends on startup if table is empty
-  try {
-    const trendsCheck = await db.execute("SELECT COUNT(*) as count FROM ai_trend_suggestions WHERE status = 'pending'");
-    const count = trendsCheck.rows[0].count as number;
-    if (count === 0) {
-      console.log("[Startup Autopilot] Trend suggestion table is empty. Scrapping initial trending products...");
-      discoverTrendingProducts(false);
-    }
-  } catch(e) {}
+  (async () => {
+    try {
+      const trendsCheck = await db.execute("SELECT COUNT(*) as count FROM ai_trend_suggestions WHERE status = 'pending'");
+      const count = trendsCheck.rows[0].count as number;
+      if (count === 0) {
+        console.log("[Startup Autopilot] Trend suggestion table is empty. Scrapping initial trending products...");
+        discoverTrendingProducts(false);
+      }
+    } catch(e) {}
+  })();
   
   cron.schedule('0 0 * * *', updateUKSEO);
   cron.schedule('0 2 * * *', () => {
@@ -2994,11 +3002,12 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
 
   // Vite middleware for development or serving static files in production
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
-    });
-    app.use(vite.middlewares);
+    }).then((vite) => {
+      app.use(vite.middlewares);
+    }).catch(console.error);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

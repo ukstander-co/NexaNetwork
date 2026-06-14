@@ -486,7 +486,18 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-transparent">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#F8FAFC] relative overflow-hidden">
+      {/* Ambient 3D Glowing Elements & Radial Technical Grid */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+        {/* Deep Soft Glowing 3D Orbs */}
+        <div className="absolute top-0 right-10 w-[600px] h-[600px] bg-gradient-to-tr from-amber-200/20 to-rose-200/25 rounded-full blur-[140px] -mr-32 -mt-32" />
+        <div className="absolute top-[35%] left-[-150px] w-[500px] h-[500px] bg-gradient-to-br from-indigo-200/15 via-blue-100/10 to-emerald-250/20 rounded-full blur-[130px]" />
+        <div className="absolute bottom-10 right-[5%] w-[550px] h-[550px] bg-gradient-to-bl from-violet-200/20 via-sky-200/15 to-pink-200/15 rounded-full blur-[125px]" />
+        
+        {/* Diagonal Soft Subtle Grid Overlay */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(#0B192C 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }} />
+      </div>
+
       <Header 
         userEmail={userEmail}
         wishlist={wishlist}
