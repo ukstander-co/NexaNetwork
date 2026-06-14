@@ -3053,8 +3053,9 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
   */
 
   // Vite middleware for development or serving static files in production
-  if (process.env.NODE_ENV !== "production") {
-    import('vite').then(({ createServer: createViteServer }) => {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    const viteModId = 'vite';
+    import(viteModId).then(({ createServer: createViteServer }) => {
       createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
@@ -3063,11 +3064,14 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
       }).catch(console.error);
     }).catch(console.error);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    // Only serve static assets if not running on Vercel (since Vercel CDN serves static assets directly)
+    if (!process.env.VERCEL) {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   }
 
   if (!process.env.VERCEL) {
