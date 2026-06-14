@@ -4,12 +4,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import axios from 'axios';
-import { fileURLToPath } from 'url';
 import Groq from 'groq-sdk';
 import cron from 'node-cron';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
