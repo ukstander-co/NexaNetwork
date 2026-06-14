@@ -456,13 +456,41 @@ async function initializeDatabase() {
   }
 }
 
+let dbInitialized = false;
+let dbInitializingPromise: Promise<void> | null = null;
+
+async function ensureDbInitialized() {
+  if (dbInitialized) return;
+  if (dbInitializingPromise) return dbInitializingPromise;
+
+  dbInitializingPromise = (async () => {
+    try {
+      await initializeDatabase();
+      dbInitialized = true;
+    } catch (e) {
+      console.error("[Lazy DB Init] Failed to initialize database:", e);
+    } finally {
+      dbInitializingPromise = null;
+    }
+  })();
+
+  return dbInitializingPromise;
+}
+
 function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
 
-  // Trigger asynchronous database schema setup/migration/seeding without blocking the module load / router registration
-  initializeDatabase().catch(console.error);
+  // Safe lazy-initialization of the database on incoming requests to prevent serverless boot timeouts
+  app.use(async (req, res, next) => {
+    try {
+      await ensureDbInitialized();
+    } catch (err) {
+      console.error("Error in lazy database initialization middleware:", err);
+    }
+    next();
+  });
 
   // --- Automatic Tag & SEO Rotation Logic (Every 15 Days) ---
   const rotateBlogTags = async () => {
