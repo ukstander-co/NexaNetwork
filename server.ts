@@ -457,6 +457,16 @@ let dbInitializingPromise: Promise<void> | null = null;
 
 async function ensureDbInitialized() {
   if (dbInitialized) return;
+
+  // Vercel Serverless environment optimization:
+  // Since the Turso cloud database has already been initialized with all tables
+  // during local/dev operations, skipping schema checks (DDL queries) on Vercel
+  // avoids concurrent table locking (SQLITE_BUSY) and cuts cold starts to 0ms.
+  if (process.env.VERCEL) {
+    dbInitialized = true;
+    return;
+  }
+
   if (dbInitializingPromise) return dbInitializingPromise;
 
   dbInitializingPromise = (async () => {
@@ -576,16 +586,18 @@ function startServer() {
     }
   };
 
-  // Run SEO update on startup if empty, otherwise daily at midnight
-  (async () => {
-    try {
-      const seoCheck = await db.execute("SELECT COUNT(*) as count FROM seo_data");
-      const count = seoCheck.rows[0].count as number;
-      if (count === 0) {
-        updateUKSEO();
-      }
-    } catch(e) {}
-  })();
+  // Run SEO update on startup if empty, otherwise daily at midnight (Skip on Vercel)
+  if (!process.env.VERCEL) {
+    (async () => {
+      try {
+        const seoCheck = await db.execute("SELECT COUNT(*) as count FROM seo_data");
+        const count = seoCheck.rows[0].count as number;
+        if (count === 0) {
+          updateUKSEO();
+        }
+      } catch(e) {}
+    })();
+  }
 
   // --- AI Trend Suggestion Autonomous Scraper Functions ---
   
