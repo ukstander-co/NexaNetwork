@@ -1,0 +1,11 @@
+# nixpacks.toml
+# This configuration file ensures Nixpacks builds and runs our full-stack Express server properly
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"

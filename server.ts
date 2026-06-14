@@ -3088,8 +3088,14 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
   }, 75000); // Scans and drops database item price every 75 seconds for quick-acting demonstration feedback
   */
 
+  // Safe environment determination:
+  // If we are running the compiled production bundle file (dist/server.cjs), or node env is prod, or on vercel:
+  const isProductionMode = process.env.NODE_ENV === 'production' || 
+                           !!process.env.VERCEL || 
+                           (typeof __filename !== 'undefined' && (__filename.includes('dist') || __filename.includes('server.cjs')));
+
   // Vite middleware for development or serving static files in production
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  if (!isProductionMode) {
     const viteModId = 'vite';
     import(viteModId).then(({ createServer: createViteServer }) => {
       createViteServer({
