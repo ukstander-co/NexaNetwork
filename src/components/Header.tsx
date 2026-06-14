@@ -36,7 +36,10 @@ export default function Header({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
+  
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const { countryName, flagEmoji, languageCode, changeLanguage, availableLanguages } = useGeolocation();
   const { t } = useTranslation();
@@ -65,11 +68,14 @@ export default function Header({
 
   const headerPromo = globalSettings?.header_promo || "New Releases in UK";
 
-  // Close search history on outside click
+  // Close search history & category dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowHistory(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -126,8 +132,8 @@ export default function Header({
         <div className="flex flex-col lg:flex-row items-center px-4 py-2 gap-2 lg:gap-6">
           
           <div className="flex items-center justify-between w-full lg:w-auto gap-4">
-            {/* Mobile Menu Toggle (Simplified) */}
-            <button onClick={() => setIsDrawerOpen(true)} className="lg:hidden p-1 hover:bg-white/10 rounded-md">
+            {/* Mobile Menu Toggle (Simplified) - Hidden/Removed in mobile view */}
+            <button onClick={() => setIsDrawerOpen(true)} className="hidden p-1 hover:bg-white/10 rounded-md">
               <Menu className="w-6 h-6" />
             </button>
 
@@ -137,14 +143,71 @@ export default function Header({
             </div>
 
             {/* Mobile Only: Quick Icons */}
-            <div className="flex lg:hidden items-center gap-3">
+            <div className="flex lg:hidden items-center gap-3 relative">
               <button onClick={() => { if (onFilterWishlist) onFilterWishlist(); else navigate('/user?wishlist=true'); }} className="relative p-1">
                 <Heart className={`w-6 h-6 ${wishlist.length > 0 ? 'fill-red-500 text-red-500' : 'text-white'}`} />
                 {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">{wishlist.length}</span>}
               </button>
-              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1">
+              <button 
+                onClick={() => {
+                  if (userEmail === 'Guest') {
+                    navigate('/login');
+                  } else {
+                    setIsMenuOpen(!isMenuOpen);
+                  }
+                }} 
+                className="p-1 text-white hover:text-slate-200 transition-colors"
+                id="mobile-avatar-button"
+              >
                 <User className="w-6 h-6" />
               </button>
+
+              {isMenuOpen && userEmail !== 'Guest' && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 shadow-2xl rounded-xl p-2 z-[60] animate-in fade-in slide-in-from-top-2 text-slate-900 origin-top-right">
+                  <div className="px-3 py-2.5 border-b border-slate-100 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
+                      <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${userEmail}`} alt="Avatar" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="text-xs font-bold text-slate-800 truncate leading-tight">{userEmail}</p>
+                      <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider mt-0.5 flex items-center"><Star className="w-2.5 h-2.5 mr-0.5" fill="currentColor"/> Premium</p>
+                    </div>
+                  </div>
+                  <div className="py-1">
+                    <button 
+                      onClick={() => { 
+                        if (onFilterWishlist) onFilterWishlist(); 
+                        else navigate('/user?wishlist=true'); 
+                        setIsMenuOpen(false); 
+                      }} 
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors font-medium flex items-center gap-2 rounded-lg"
+                    >
+                      <Heart className="w-4 h-4 text-red-500" /> Your Wishlist ({wishlist.length})
+                    </button>
+                    <button 
+                      onClick={() => { 
+                        navigate('/user/profile'); 
+                        setIsMenuOpen(false); 
+                      }} 
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors font-medium flex items-center gap-2 rounded-lg scroll-mt-2"
+                    >
+                      <User className="w-4 h-4 text-slate-400" /> Your Account
+                    </button>
+                  </div>
+                  <div className="h-px bg-slate-100 mx-2"></div>
+                  <div className="py-1">
+                    <button 
+                      onClick={() => { 
+                        handleLogout(); 
+                        setIsMenuOpen(false); 
+                      }} 
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-red-50 hover:text-red-650 transition-colors font-medium flex items-center gap-2 rounded-lg"
+                    >
+                      <LogOut className="w-4 h-4 text-slate-400" /> Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Location Delivery (Desktop) */}
@@ -158,11 +221,11 @@ export default function Header({
           </div>
 
           {/* Search Bar */}
-          <div className="w-full flex-1 flex h-10 rounded-md overflow-visible relative focus-within:ring-2 focus-within:ring-red-600 bg-white group" ref={searchRef}>
+          <div className="w-full flex-1 flex h-10 rounded-full overflow-hidden border border-slate-700/50 relative focus-within:ring-2 focus-within:ring-red-600 bg-white group" ref={searchRef}>
               <select 
                 value={searchBarCategory}
                 onChange={(e) => setSearchBarCategory(e.target.value)}
-                className="hidden sm:block bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2 outline-none border-r border-slate-300 cursor-pointer h-full max-w-[120px] rounded-l-md truncate"
+                className="hidden sm:block bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2 outline-none border-r border-slate-300 cursor-pointer h-full max-w-[120px] rounded-l-full truncate"
               >
                 {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat === 'All Categories' ? t('all_categories') : cat}</option>)}
              </select>
@@ -174,10 +237,10 @@ export default function Header({
                 onChange={(e) => setSearchInput(e.target.value)}
                 onFocus={() => setShowHistory(true)}
                 onKeyDown={handleSearchSubmit}
-                className="flex-1 px-4 text-slate-900 outline-none h-full text-sm rounded-l-md sm:rounded-l-none"
+                className="flex-1 px-4 text-slate-900 outline-none h-full text-sm rounded-l-full sm:rounded-l-none"
              />
              
-             <button onClick={executeSearch} className="bg-red-600 hover:bg-red-700 w-12 flex items-center justify-center transition-colors rounded-r-md">
+             <button onClick={executeSearch} className="bg-red-600 hover:bg-red-700 w-12 flex items-center justify-center transition-colors rounded-r-full">
                 <Search className="w-5 h-5 text-white" />
              </button>
 
@@ -355,7 +418,7 @@ export default function Header({
         </div>
 
         {/* Sub Header / Quick Links */}
-        <div className="bg-[#012169] text-white flex items-center px-4 py-1.5 gap-2 sm:gap-4 overflow-x-auto whitespace-nowrap text-sm [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] border-b border-slate-800">
+        <div className="hidden md:flex bg-[#012169] text-white items-center px-4 py-1.5 gap-2 sm:gap-4 overflow-x-auto whitespace-nowrap text-sm [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] border-b border-slate-800">
           <button onClick={() => setIsDrawerOpen(true)} className="flex items-center gap-1 hover:outline hover:outline-1 hover:outline-white px-1.5 py-0.5 rounded-sm font-bold shrink-0">
             <Menu className="w-5 h-5" /> All
           </button>
@@ -409,6 +472,56 @@ export default function Header({
             {headerPromo}
           </span>
         </div>
+
+        {/* Mobile-Only Horizontal Scroll of Categories (Pill-styled) - Compressed to a beautiful tiny Category Selector Dropdown */}
+        <div className="md:hidden bg-slate-50 border-b border-slate-200/50 py-2.5 px-4 flex items-center justify-between">
+           <div className="flex items-center gap-1.5 min-w-0">
+             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Category:</span>
+             <span className="text-xs font-extrabold text-[#0B192C] bg-[#febd69]/30 border border-[#febd69]/40 px-2.5 py-0.5 rounded-full truncate max-w-[160px]">
+               {initialCategory === 'All Categories' ? t('all_categories') || 'All Categories' : initialCategory}
+             </span>
+           </div>
+           
+           <div className="relative shrink-0" ref={categoryDropdownRef}>
+             <button 
+               onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+               className="flex items-center gap-1 px-3 py-1.5 bg-[#0B192C] hover:bg-red-700 text-white rounded-full text-xs font-black transition-all shadow-sm shrink-0"
+               id="mobile-category-menu"
+             >
+               <Filter className="w-3.5 h-3.5 text-[#febd69]" />
+               <span>Category</span>
+               <ChevronDown className={`w-3 h-3 transition-transform duration-300 ml-0.5 ${isCategoryDropdownOpen ? 'rotate-180': ''}`} />
+             </button>
+             
+             {isCategoryDropdownOpen && (
+               <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 shadow-2xl rounded-2xl p-1.5 z-50 animate-in fade-in slide-in-from-top-1 text-slate-900 origin-top-right">
+                 <div className="px-2 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">Select Department</div>
+                 <div className="max-h-60 overflow-y-auto space-y-0.5">
+                   {dynamicCategories.map((cat) => {
+                     const isSelected = initialCategory === cat;
+                     return (
+                       <button
+                         key={cat}
+                         onClick={() => {
+                           handleCategorySelect(cat);
+                           setIsCategoryDropdownOpen(false);
+                         }}
+                         className={`w-full text-left px-3 py-2 text-xs rounded-xl font-bold transition-all flex items-center justify-between ${
+                           isSelected 
+                             ? 'bg-blue-50 text-blue-600 border border-blue-100 font-black' 
+                             : 'text-slate-700 hover:bg-slate-50'
+                         }`}
+                       >
+                         <span className="truncate">{cat === 'All Categories' ? t('all_categories') || 'All Categories' : cat}</span>
+                         {isSelected && <span className="w-1.5 h-1.5 bg-blue-600 rounded-full shrink-0 ml-1"></span>}
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
+             )}
+           </div>
+        </div>
       </header>
 
       {/* Responsive Left Navigation Drawer */}
@@ -421,12 +534,45 @@ export default function Header({
               <button onClick={() => setIsDrawerOpen(false)} className="text-slate-400 hover:text-white text-lg font-bold">×</button>
             </div>
 
-            <div className="flex items-center gap-2 px-1 text-slate-300 mb-6">
+            <div className="flex items-center gap-2 px-1 text-slate-300 mb-4">
               <MapPin className="w-4 h-4 text-[#febd69]" />
               <span className="text-xs font-bold">{countryName} delivery active</span>
             </div>
 
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-2">Shop Curation Department</span>
+            <div className="mb-6 relative">
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => { if(e.key === 'Enter'){ executeSearch(); setIsDrawerOpen(false); } }}
+                className="w-full px-4 py-2.5 bg-slate-800 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-[#febd69] text-sm"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              
+              {searchHistory.length > 0 && (
+                <div className="mt-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-1">Recent Searches</span>
+                  <div className="flex flex-col gap-1">
+                    {searchHistory.filter(h => h.toLowerCase().includes(searchInput.toLowerCase())).slice(0, 4).map((hist, idx) => (
+                      <button
+                        key={`mob-hist-${idx}`}
+                        className="text-left px-2 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded-md flex items-center gap-2 group transition-colors"
+                        onClick={() => {
+                          setSearchInput(hist);
+                          setTimeout(() => { executeSearch(); setIsDrawerOpen(false); }, 50);
+                        }}
+                      >
+                        <Clock className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#febd69]" />
+                        <span className="truncate">{hist}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mb-2">Shop Curation Department</span>
             {dynamicCategories.map(cat => (
               <button 
                 key={cat} 

@@ -10,6 +10,30 @@ export default function BlogList() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string>('All');
+
+  const uniqueTags = useMemo(() => {
+    const s = new Set<string>();
+    blogs.forEach((b: any) => {
+      if (b.tags) {
+        b.tags.split(',').forEach((t: string) => {
+          const clean = t.trim();
+          if (clean && clean.length > 1) {
+            s.add(clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase());
+          }
+        });
+      }
+    });
+    return ['All', ...Array.from(s)];
+  }, [blogs]);
+
+  const filteredBlogs = useMemo(() => {
+    if (selectedTag === 'All') return blogs;
+    return blogs.filter((b: any) => 
+      b.tags && b.tags.split(',').some((t: string) => t.trim().toLowerCase() === selectedTag.toLowerCase())
+    );
+  }, [blogs, selectedTag]);
+
   const getUserEmail = () => {
     try {
       const u = localStorage.getItem('user');
@@ -189,24 +213,47 @@ export default function BlogList() {
           </section>
 
           <div className="max-w-6xl mx-auto px-6 -mt-20 relative z-20">
-            {blogs.length === 0 ? (
-              <div className="bg-white rounded-[2.5rem] p-24 text-center border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8">
-                  <Tag className="w-10 h-10 text-slate-300" />
+            {/* Scrollable Tag Filtering Bar on Mobile */}
+            {blogs.length > 0 && uniqueTags.length > 1 && (
+              <div className="flex md:hidden items-center gap-2 overflow-x-auto pb-6 pt-2 mb-2 scrollbar-none" id="mobile-tag-scrollbar">
+                {uniqueTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTag(tag);
+                    }}
+                    className={`px-4 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0 cursor-pointer ${
+                      selectedTag === tag
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100'
+                        : 'bg-white border-slate-200 text-slate-650'
+                    }`}
+                    style={selectedTag === tag ? { backgroundColor: '#4F46E5', borderColor: '#4F46E5', color: '#ffffff' } : undefined}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredBlogs.length === 0 ? (
+              <div className="bg-white rounded-3xl md:rounded-[2.5rem] p-12 md:p-24 text-center border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 md:mb-8">
+                  <Tag className="w-8 h-8 md:w-10 md:h-10 text-slate-300" />
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 mb-3">The Catalog is Empty</h2>
-                <p className="text-slate-500 max-w-sm mx-auto font-medium">Our AI researchers are scanning the UK market for the next big thing. Check back in a few moments.</p>
+                <h2 className="text-xl md:text-2xl font-black text-slate-900 mb-3">No articles found</h2>
+                <p className="text-slate-500 max-w-sm mx-auto text-xs md:text-sm font-medium">We couldn't find any UK shopping guides under the "{selectedTag}" category. Check back soon!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                {blogs.map((blog, idx) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+                {filteredBlogs.map((blog, idx) => (
                     <motion.div 
                       key={blog.id}
                       initial={{ opacity: 0, y: 30 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.1 }}
                       onClick={() => navigate(`/blog/${blog.slug}`)}
-                      className="group block h-full bg-white rounded-[2.5rem] overflow-hidden border border-slate-200/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.12)] transition-all duration-700 active:scale-[0.98] relative cursor-pointer"
+                      className="group block h-full bg-white rounded-3xl md:rounded-[2.5rem] overflow-hidden border border-slate-200/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.12)] transition-all duration-700 active:scale-[0.98] relative cursor-pointer"
                     >
                       <div className="aspect-[16/10] overflow-hidden relative">
                         <img 
@@ -277,7 +324,7 @@ export default function BlogList() {
                           </div>
                         </div>
                       </div>
-                      <div className="p-8">
+                      <div className="p-5 sm:p-8">
                         <div className="flex items-center justify-between mb-5">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-0.5 bg-indigo-600"></div>

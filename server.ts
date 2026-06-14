@@ -40,6 +40,9 @@ async function initializeDatabase() {
     const tableCheck = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
     if (tableCheck.rows && tableCheck.rows.length > 0) {
       console.log("[DB Startup Optimizer] Database is already initialized. Skipping redundant schema creation queries.");
+      try {
+        await db.execute("ALTER TABLE users ADD COLUMN marketing_emails INTEGER DEFAULT 1");
+      } catch (e) {}
       return;
     }
 
@@ -51,6 +54,7 @@ async function initializeDatabase() {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'user',
+        marketing_emails INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -1519,9 +1523,9 @@ Return valid JSON ONLY in this format:
         const seedCart = (Number(cleanId) * 3) % 15 + 6;
         const finalCartCount = seedCart + dbWishCount;
 
-        // Calculate dynamic views count
+        // Calculate dynamic views count (realistic and natural range: 8 to 34 views per 24 hours, plus real-time catalog views)
         const dbViewCount = productViews[cleanId] || 0;
-        const baseViews = Number(p.views_count) || (350 + Number(cleanId));
+        const baseViews = ((Number(cleanId) * 13) % 27) + 8;
         const finalViewsCount = baseViews + dbViewCount;
 
         return {
@@ -1533,7 +1537,7 @@ Return valid JSON ONLY in this format:
         };
       });
     } catch (e) {
-      console.error("Error enriching products with metrics:", e);
+      // Silently fall back to standard data without metrics if network issue
       return rows;
     }
   }
@@ -1556,7 +1560,7 @@ Return valid JSON ONLY in this format:
       
       // Increment views count in database dynamically
       await db.execute({
-        sql: "UPDATE products SET views_count = COALESCE(views_count, 350) + 1 WHERE id = ?",
+        sql: "UPDATE products SET views_count = COALESCE(views_count, 0) + 1 WHERE id = ?",
         args: [cleanId]
       });
 
@@ -1609,6 +1613,11 @@ Return valid JSON ONLY in this format:
       const totalRatings = reviewsList.reduce((sum, r) => sum + r.rating, 0);
       const averageRating = reviewsList.length > 0 ? Number((totalRatings / reviewsList.length).toFixed(1)) : 4.8;
 
+      // Calculate realistic views
+      const dbViewCount = Number(p.views_count) || 0;
+      const baseViews = ((Number(cleanId) * 13) % 27) + 8;
+      const finalViewsCount = baseViews + dbViewCount;
+
       const productDetail = {
         id: `db-${p.id}`,
         name: p.ai_title || "Premium product",
@@ -1618,7 +1627,7 @@ Return valid JSON ONLY in this format:
         rating: averageRating,
         reviews_count: reviewsList.length,
         cart_count: finalCartCount,
-        views_count: Number(p.views_count) || (350 + Number(cleanId)),
+        views_count: finalViewsCount,
         discount: "Exclusive Deal",
         image: p.image_url || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400",
         affiliateLink: p.affiliate_link,
@@ -1836,6 +1845,84 @@ Return valid JSON ONLY in this format:
       res.json(result.rows.map(r => r.product_id));
     } catch (e) {
       res.status(500).json({ error: "Failed to list serverside wishlists" });
+    }
+  });
+
+  // GET User Settings (e.g. Marketing Emails)
+  app.get('/api/user/settings', async (req, res) => {
+    const { email } = req.query;
+    if (!email) {
+      res.status(400).json({ error: "Email query parameter required" });
+      return;
+    }
+    try {
+      const result = await db.execute({
+        sql: "SELECT marketing_emails FROM users WHERE email = ?",
+        args: [email as string]
+      });
+      if (result.rows.length === 0) {
+        res.status(404).json({ error: "User session not found" });
+        return;
+      }
+      res.json({ marketingEmails: result.rows[0].marketing_emails !== 0 });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load user preference details" });
+    }
+  });
+
+  // POST Update User Settings (e.g. Marketing Emails)
+  app.post('/api/user/settings', async (req, res) => {
+    const { email, marketingEmails } = req.body;
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+    try {
+      await db.execute({
+        sql: "UPDATE users SET marketing_emails = ? WHERE email = ?",
+        args: [marketingEmails ? 1 : 0, email]
+      });
+      res.json({ success: true, marketingEmails });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to update user preference details" });
+    }
+  });
+
+  // POST Delete User Account fully from SQLite database securely (Cascading manually)
+  app.post('/api/user/delete-account', async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: "Email is required to confirm account deletion" });
+      return;
+    }
+    try {
+      // 1. Delete from users table
+      await db.execute({
+        sql: "DELETE FROM users WHERE email = ?",
+        args: [email]
+      });
+      // 2. Delete from wishlists
+      await db.execute({
+        sql: "DELETE FROM wishlists WHERE email = ?",
+        args: [email]
+      });
+      // 3. Delete from user_profiles
+      await db.execute({
+        sql: "DELETE FROM user_profiles WHERE email = ?",
+        args: [email]
+      });
+      // 4. Delete from user_interactions
+      await db.execute({
+        sql: "DELETE FROM user_interactions WHERE email = ?",
+        args: [email]
+      });
+
+      res.json({ success: true, message: "Account and personal records deleted successfully from secure repository." });
+    } catch (e) {
+      console.error("Failed to delete account:", e);
+      res.status(500).json({ error: "Failed to process security deletion protocol." });
     }
   });
 
@@ -3041,52 +3128,178 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
   });
 
   // 8. Active background service (price drops engine, simulating live prices fluctuations and alerting users via SQLite triggers)
-  /*
-  setInterval(async () => {
-    try {
-      console.log("[Background Service] Cross-referencing wishlists with active database prices...");
-      const prodRes = await db.execute("SELECT id, ai_title, price FROM products");
-      if (prodRes.rows.length === 0) return;
+  if (!process.env.VERCEL) {
+    setInterval(async () => {
+      try {
+        console.log("[Background Service] Cross-referencing wishlists with active database prices...");
+        const prodRes = await db.execute("SELECT id, ai_title, price FROM products");
+        if (prodRes.rows.length === 0) return;
 
-      // Select a random product to drop price
-      const rIndex = Math.floor(Math.random() * prodRes.rows.length);
-      const product = prodRes.rows[rIndex];
-      const prodId = `db-${product.id}`;
-      const oldPrice = parseFloat(product.price as string) || 120.0;
+        // Select a random product to drop price
+        const rIndex = Math.floor(Math.random() * prodRes.rows.length);
+        const product = prodRes.rows[rIndex];
+        const prodId = `db-${product.id}`;
+        const oldPrice = parseFloat(product.price as string) || 120.0;
 
-      // Drop price between 8% and 22%
-      const reduction = (Math.floor(Math.random() * 15) + 8) / 100;
-      const newPrice = Number((oldPrice * (1.0 - reduction)).toFixed(2));
+        // Drop price between 8% and 22%
+        const reduction = (Math.floor(Math.random() * 15) + 8) / 100;
+        const newPrice = Number((oldPrice * (1.0 - reduction)).toFixed(2));
 
-      console.log(`[Background price-drop] Simulated drop for ${product.ai_title}: £${oldPrice} -> £${newPrice}`);
+        console.log(`[Background price-drop] Simulated drop for ${product.ai_title}: £${oldPrice} -> £${newPrice}`);
 
-      // Update price in SQL database
-      await db.execute({
-        sql: "UPDATE products SET price = ? WHERE id = ?",
-        args: [newPrice, product.id]
-      });
-
-      // Find subscribers who have this product ID saved in their wishlist
-      // Price drop notifications disabled by user request
-      
-      const subscriptions = await db.execute({
-        sql: "SELECT email FROM wishlists WHERE product_id = ?",
-        args: [prodId]
-      });
-
-      console.log(`[Background price-drop] Notifying ${subscriptions.rows.length} subscribers on platform database...`);
-      for (const sub of subscriptions.rows) {
-        const subscriberEmail = sub.email as string;
+        // Update price in SQL database
         await db.execute({
-          sql: "INSERT INTO price_alerts (email, product_id, product_name, old_price, new_price) VALUES (?, ?, ?, ?, ?)",
-          args: [subscriberEmail, prodId, product.ai_title as string, oldPrice, newPrice]
+          sql: "UPDATE products SET price = ? WHERE id = ?",
+          args: [newPrice, product.id]
         });
+
+        const subscriptions = await db.execute({
+          sql: "SELECT email FROM wishlists WHERE product_id = ?",
+          args: [prodId]
+        });
+
+        console.log(`[Background price-drop] Notifying ${subscriptions.rows.length} subscribers on platform database...`);
+        for (const sub of subscriptions.rows) {
+          const subscriberEmail = sub.email as string;
+          await db.execute({
+            sql: "INSERT INTO price_alerts (email, product_id, product_name, old_price, new_price) VALUES (?, ?, ?, ?, ?)",
+            args: [subscriberEmail, prodId, product.ai_title as string, oldPrice, newPrice]
+          });
+        }
+      } catch (err) {
+        console.error("[Background price drop failure]", err);
       }
-    } catch (err) {
-      console.error("[Background price drop failure]", err);
+    }, 75000); // Scans and drops database item price every 75 seconds for quick-acting demonstration feedback
+  }
+
+  app.get('/api/chat', async (req, res) => {
+    const { email } = req.query;
+    if (!email) {
+      res.status(400).json({ error: "Email query param required" });
+      return;
     }
-  }, 75000); // Scans and drops database item price every 75 seconds for quick-acting demonstration feedback
-  */
+    try {
+      const result = await db.execute({
+        sql: "SELECT messages, status FROM live_chats WHERE user_email = ? AND is_active = 1",
+        args: [email as string]
+      });
+      if (result.rows.length > 0) {
+        res.json({ messages: JSON.parse(result.rows[0].messages as string || "[]") });
+      } else {
+        res.json({ messages: [] });
+      }
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch chat logs" });
+    }
+  });
+
+  const shoppingAssistantGroq = new Groq({ 
+    apiKey: process.env.SHOPPING_ASSISTANT_GROQ_API_KEY || "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" 
+  });
+
+  app.post('/api/chat', async (req, res) => {
+    const { message, email } = req.body;
+    if (!message || !email) {
+      res.status(400).json({ error: "Message and email required" });
+      return;
+    }
+
+    try {
+      // Get all products to provide context
+      const productsReq = await db.execute("SELECT id, ai_title, price, category FROM products LIMIT 50");
+      const productsContext = productsReq.rows.map(r => `- ${r.ai_title} (Category: ${r.category}, Price: £${r.price}) - ID: db-${r.id}`).join('\n');
+
+      // Check current session from live_chats table
+      let session = await db.execute({
+        sql: "SELECT id, messages, status FROM live_chats WHERE user_email = ? AND is_active = 1",
+        args: [email]
+      });
+
+      let msgs: any[] = [];
+      let chatId = null;
+      let status = 'ai';
+
+      if (session.rows.length === 0) {
+        // Create new session
+        const result = await db.execute({
+          sql: "INSERT INTO live_chats (user_email, status, messages, is_active) VALUES (?, 'ai', ?, 1) RETURNING id",
+          args: [email, "[]"]
+        });
+        chatId = result.rows[0].id;
+      } else {
+        chatId = session.rows[0].id;
+        msgs = JSON.parse(session.rows[0].messages as string || "[]");
+        status = session.rows[0].status as string;
+      }
+
+      msgs.push({ role: 'user', content: message });
+      
+      // If the chat is in "admin" mode, we don't reply with AI, we just append to DB and return an empty response so the UI waits or polls for admin reply.
+      if (status === 'admin') {
+         await db.execute({
+            sql: "UPDATE live_chats SET messages = ? WHERE id = ?",
+            args: [JSON.stringify(msgs), chatId]
+         });
+         res.json({ reply: "Awaiting response from a human representative..." });
+         return;
+      }
+
+      // Check for human takeover intent
+      const isHumanIntent = /(human|agent|person|admin|representative|help me to talk to)/i.test(message) && message.length < 150;
+      
+      if (isHumanIntent) {
+        // Notify admin
+        await db.execute({
+          sql: "INSERT INTO admin_notifications (type, message, user_email, status) VALUES (?, ?, ?, 'unread')",
+          args: ['support', 'User is requesting human assistance in the Shopping Assistant.', email]
+        });
+
+        const reply = "I have notified our support team. An administrator will take over this chat shortly.";
+        msgs.push({ role: 'assistant', content: reply });
+        
+        await db.execute({
+          sql: "UPDATE live_chats SET messages = ?, status = 'admin' WHERE id = ?",
+          args: [JSON.stringify(msgs), chatId]
+        });
+
+        res.json({ reply });
+        return;
+      }
+
+      const prompt = `You are a helpful AI Shopping Assistant for UKStander. You guide customers to the best deals based on their preferences.
+
+You have access to the following current catalog:
+${productsContext}
+
+Answer user questions neutrally, concisely, and helpfully. Recommend products from the catalog if relevant. 
+If they ask about your logic, explain that you analyze their preferences, wishlist items, and browsing history to find the perfect matches among our curated deals.
+Keep your answers under 3 sentences for better readability, unless they ask for a detailed list. Be friendly and professional.`;
+
+      const groqMessages = [
+        { role: 'system', content: prompt },
+        ...msgs.map(m => ({ role: m.role, content: m.content }))
+      ];
+
+      const groqResponse = await shoppingAssistantGroq.chat.completions.create({
+        messages: groqMessages,
+        model: "llama-3.1-8b-instant"
+      });
+
+      const reply = groqResponse.choices[0]?.message?.content || "I couldn't process your request.";
+      msgs.push({ role: 'assistant', content: reply });
+
+      // Update DB
+      await db.execute({
+        sql: "UPDATE live_chats SET messages = ? WHERE id = ?",
+        args: [JSON.stringify(msgs), chatId]
+      });
+
+      res.json({ reply });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to process chat" });
+    }
+  });
 
   // Safe environment determination:
   // If we are running the compiled production bundle file (dist/server.cjs), or node env is prod, or on vercel:

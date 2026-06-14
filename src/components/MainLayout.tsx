@@ -17,21 +17,33 @@ export default function MainLayout({ children, onSearch, initialSearch, initialC
   useEffect(() => {
     // Attempt to load user from localStorage
     const savedUser = localStorage.getItem('user');
+    let uEmail = 'Guest';
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
-        setUserEmail(user.email || 'User');
-        
-        // Fetch wishlist if user exists
-        fetch(`/api/wishlist?email=${encodeURIComponent(user.email)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (Array.isArray(data)) {
-              setWishlist(data);
-            }
-          })
-          .catch(() => {});
+        uEmail = user.email || 'User';
+        setUserEmail(uEmail);
       } catch (e) {}
+    }
+
+    // Load correct user-specific local wishlist
+    const userWishlistKey = `wishlist_${uEmail}`;
+    const localWish = JSON.parse(localStorage.getItem(userWishlistKey) || localStorage.getItem('wishlist') || '[]');
+    setWishlist(localWish);
+
+    if (uEmail && uEmail !== 'Guest' && uEmail !== 'User') {
+      // Fetch wishlist if user exists
+      fetch(`/api/wishlist?email=${encodeURIComponent(uEmail)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const merged = Array.from(new Set([...localWish, ...data]));
+            setWishlist(merged);
+            localStorage.setItem(userWishlistKey, JSON.stringify(merged));
+            localStorage.setItem('wishlist', JSON.stringify(merged));
+          }
+        })
+        .catch(() => {});
     }
 
     // Fetch categories for search bar

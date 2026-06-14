@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Search, ShieldCheck, Tag, ExternalLink, Filter, Star, Loader2, ArrowDownUp, Heart, Clock, User, ChevronDown, MapPin, Menu, ShoppingCart, Zap } from 'lucide-react';
+import { LogOut, Search, ShieldCheck, Tag, ExternalLink, Filter, Star, Loader2, ArrowDownUp, Heart, Clock, User, ChevronDown, MapPin, Menu, ShoppingCart, Zap, Home, MessageSquare, Bell } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import Logo from '../components/Logo';
+import ShoppingAssistant from '../components/ShoppingAssistant';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useTranslation } from '../hooks/useTranslation';
 
@@ -35,7 +37,11 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true);
 
   // New features state
-  const [wishlist, setWishlist] = useState<string[]>(JSON.parse(localStorage.getItem('wishlist') || '[]'));
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    const userLocal = localStorage.getItem('user');
+    const uEmail = userLocal ? JSON.parse(userLocal)?.email || 'Guest' : 'Guest';
+    return JSON.parse(localStorage.getItem(`wishlist_${uEmail}`) || localStorage.getItem('wishlist') || '[]');
+  });
   const [showWishlistOnly, setShowWishlistOnly] = useState(false);
   const [showTopDropsOnly, setShowTopDropsOnly] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -48,6 +54,7 @@ export default function UserDashboard() {
 
   // Mobile Drawer Navigation 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isMobileFiltersExpanded, setIsMobileFiltersExpanded] = useState(false);
 
   // Shopping Assistant widget keys
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
@@ -148,30 +155,38 @@ export default function UserDashboard() {
 
   // 2. Synchronize Local Wishlist entries with SQL persistent schema
   useEffect(() => {
-    if (userEmail) {
+    if (userEmail && userEmail !== 'Guest') {
+      const userWishlistKey = `wishlist_${userEmail}`;
+      const localWish = JSON.parse(localStorage.getItem(userWishlistKey) || '[]');
+      setWishlist(localWish);
+
       fetch('/api/wishlist/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail, productIds: wishlist })
+        body: JSON.stringify({ email: userEmail, productIds: localWish })
       })
         .then(() => {
           fetch(`/api/wishlist?email=${encodeURIComponent(userEmail)}`)
             .then(res => res.json())
             .then(srvWish => {
               if (Array.isArray(srvWish)) {
-                const merged = Array.from(new Set([...wishlist, ...srvWish]));
+                const merged = Array.from(new Set([...localWish, ...srvWish]));
                 setWishlist(merged);
+                localStorage.setItem(userWishlistKey, JSON.stringify(merged));
                 localStorage.setItem('wishlist', JSON.stringify(merged));
               }
             })
             .catch(console.error);
         })
         .catch(console.error);
+    } else {
+      const guestWish = JSON.parse(localStorage.getItem('wishlist_Guest') || '[]');
+      setWishlist(guestWish);
+      localStorage.setItem('wishlist', JSON.stringify(guestWish));
     }
   }, [userEmail]);
 
   // 3. Continuous Price Alert Polling (In-App Glassmorphism Toast notifications)
-  /*
   useEffect(() => {
     if (!userEmail) return;
     const alertInterval = setInterval(() => {
@@ -179,24 +194,48 @@ export default function UserDashboard() {
         .then(res => res.json())
         .then(alerts => {
           if (Array.isArray(alerts) && alerts.length > 0) {
-            setPriceAlerts(alerts.slice(0, 1));
+            alerts.forEach((alert: any) => {
+              toast.custom((t) => (
+                <div
+                  className={`${
+                    t.visible ? 'animate-enter' : 'animate-leave'
+                  } max-w-sm w-full bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl pointer-events-auto flex ring-1 ring-black/5 p-4`}
+                >
+                  <div className="flex-1 w-0 flex items-center">
+                    <div className="flex-shrink-0 pt-0.5">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-rose-400 to-orange-400 flex items-center justify-center border border-white/50 shadow-sm">
+                        <Zap className="h-5 w-5 text-white" />
+                      </div>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <p className="text-sm font-bold text-slate-800">
+                        Price Drop on {alert.product_name}!
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600 font-medium">
+                        Now only <span className="text-rose-600 font-bold tracking-tight">£{alert.new_price}</span> (was £{alert.old_price})
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 flex">
+                    <button
+                      onClick={() => toast.dismiss(t.id)}
+                      className="bg-white/50 rounded-full p-1.5 inline-flex text-slate-400 hover:text-slate-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors"
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ), { duration: 5000 });
+            });
           }
         })
         .catch(console.error);
     }, 15000);
     return () => clearInterval(alertInterval);
   }, [userEmail]);
-
-  // Auto-dismiss notifications after 5 seconds
-  useEffect(() => {
-    if (priceAlerts.length > 0) {
-      const timer = setTimeout(() => {
-        setPriceAlerts(prev => prev.slice(0, -1));
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [priceAlerts]);
-  */
 
   // 4. Shopping Assistant chat synchrononization/polling when and if admin is takeover connecting
   useEffect(() => {
@@ -304,6 +343,7 @@ export default function UserDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('wishlist'); // Clear current active wishlist cache
     navigate('/login');
   };
 
@@ -312,10 +352,11 @@ export default function UserDashboard() {
     const strId = id.toString();
     const updated = wishlist.includes(strId) ? wishlist.filter(wId => wId !== strId) : [...wishlist, strId];
     setWishlist(updated);
+    localStorage.setItem(`wishlist_${userEmail}`, JSON.stringify(updated));
     localStorage.setItem('wishlist', JSON.stringify(updated));
 
     // Persist to SQLite securely so background drops matching works
-    if (userEmail) {
+    if (userEmail && userEmail !== 'Guest') {
       fetch('/api/wishlist/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -512,62 +553,146 @@ export default function UserDashboard() {
       {/* Main Content */}
       <main className={`mx-auto w-full p-4 md:p-6 flex flex-col md:flex-row gap-8 mb-12 relative z-0 ${isHomeMode ? 'max-w-[1600px] !p-0' : 'max-w-7xl'}`}>
         
-        {/* Sidebar Filters - Glass Card */}
+        {/* Sidebar Filters - Desktop (Sticky Glass Card) & Mobile (Collapsible Glass Bar) */}
         {!isHomeMode && (
-        <aside className="w-full md:w-64 shrink-0 space-y-6 bg-white/60 backdrop-blur-lg border border-white/50 p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-fit sticky top-24">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2"><Filter className="w-4 h-4"/> Categories</h3>
-            <ul className="space-y-3 text-sm text-slate-600">
-              {dynamicCategories.map(category => (
-                <li key={category}>
-                  <button 
-                    onClick={() => handleCategorySelect(category)}
-                    className={`text-left w-full hover:text-blue-700 transition-colors ${selectedCategory === category && !showWishlistOnly ? 'font-bold text-blue-700' : ''}`}
-                  >
-                    {category}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <>
+            {/* Desktop Only: Sticky Sidebar */}
+            <aside className="hidden md:block w-64 shrink-0 space-y-6 bg-white/60 backdrop-blur-lg border border-white/50 p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-fit sticky top-24">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2"><Filter className="w-4 h-4"/> Categories</h3>
+                <ul className="space-y-3 text-sm text-slate-600">
+                  {dynamicCategories.map(category => (
+                    <li key={category}>
+                      <button 
+                        onClick={() => handleCategorySelect(category)}
+                        className={`text-left w-full hover:text-blue-700 transition-colors ${selectedCategory === category && !showWishlistOnly ? 'font-bold text-blue-700' : ''}`}
+                      >
+                        {category}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-          <div className="pt-6 border-t border-slate-200/50">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2"><ArrowDownUp className="w-4 h-4"/> Sort By</h3>
-            <select 
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full p-2.5 bg-white/70 backdrop-blur-md border border-white/60 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all text-sm font-medium text-slate-700"
-            >
-              <option value="relevance">Top Relevance</option>
-              <option value="price-low">Price (Low to High)</option>
-              <option value="price-high">Price (High to Low)</option>
-              <option value="rating">Top Rated</option>
-            </select>
-          </div>
+              <div className="pt-6 border-t border-slate-200/50">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2"><ArrowDownUp className="w-4 h-4"/> Sort By</h3>
+                <select 
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full p-2.5 bg-white/70 backdrop-blur-md border border-white/60 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all text-sm font-medium text-slate-700"
+                >
+                  <option value="relevance">Top Relevance</option>
+                  <option value="price-low">Price (Low to High)</option>
+                  <option value="price-high">Price (High to Low)</option>
+                  <option value="rating">Top Rated</option>
+                </select>
+              </div>
 
-          <div className="pt-6 border-t border-slate-200/50">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Max Price (Under £{maxPrice})</h3>
-            <div className="flex items-center gap-3">
-              <input 
-                type="range" 
-                min="0" 
-                max="1000" 
-                step="50"
-                value={maxPrice} 
-                onChange={(e) => setMaxPrice(Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500 focus:outline-none"
-              />
+              <div className="pt-6 border-t border-slate-200/50">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Max Price (Under £{maxPrice})</h3>
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1000" 
+                    step="50"
+                    value={maxPrice} 
+                    onChange={(e) => setMaxPrice(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </aside>
+
+            {/* Mobile Only: Beautiful, Premium Compact Collapsible Filters Card */}
+            <div className="md:hidden w-full bg-white/80 backdrop-blur-lg border border-slate-200/60 rounded-2xl p-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all duration-300">
+              <button 
+                onClick={() => setIsMobileFiltersExpanded(!isMobileFiltersExpanded)}
+                className="w-full px-4 py-3 flex items-center justify-between text-slate-850 hover:bg-slate-50 transition-colors rounded-xl"
+              >
+                <div className="flex items-center gap-2 font-extrabold text-xs uppercase tracking-wider text-slate-800">
+                  <Filter className="w-4 h-4 text-red-650" />
+                  <span>Refine & Sort Deals</span>
+                  {selectedCategory !== 'All Categories' && (
+                    <span className="text-[10px] bg-red-100 text-red-700 border border-red-200 font-bold px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                      {selectedCategory}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <span className="text-xs font-semibold">{isMobileFiltersExpanded ? 'Close' : 'Filter'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isMobileFiltersExpanded ? 'rotate-180': ''}`} />
+                </div>
+              </button>
+
+              {isMobileFiltersExpanded && (
+                <div className="p-4 border-t border-slate-100 space-y-4 bg-white/40 animate-in slide-in-from-top-2 duration-300 rounded-b-xl">
+                  {/* Category Pills Choice inside expanded selector */}
+                  <div>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2.5">Select Department</h4>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                      {dynamicCategories.map(category => {
+                        const isSelected = selectedCategory === category && !showWishlistOnly;
+                        return (
+                          <button 
+                            key={category}
+                            onClick={() => {
+                              handleCategorySelect(category);
+                              setIsMobileFiltersExpanded(false);
+                            }}
+                            className={`text-[11px] px-3 py-1.5 rounded-full font-bold transition-all border ${
+                              isSelected 
+                                ? 'bg-[#0B192C] text-white border-[#0B192C] shadow-sm font-black'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {category}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Sorter Selector */}
+                  <div className="pt-3.5 border-t border-slate-100">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Sorting Order</h4>
+                    <select 
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none"
+                    >
+                      <option value="relevance">Top Relevance</option>
+                      <option value="price-low">Price (Low to High)</option>
+                      <option value="price-high">Price (High to Low)</option>
+                      <option value="rating">Top Rated</option>
+                    </select>
+                  </div>
+
+                  {/* Pricing Range Slider */}
+                  <div className="pt-3.5 border-t border-slate-100">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Max Price limit (Under £{maxPrice})</h4>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1000" 
+                      step="50"
+                      value={maxPrice} 
+                      onChange={(e) => setMaxPrice(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-600 focus:outline-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </aside>
+          </>
         )}
 
         {/* Product Catalog */}
         <div className={`flex-1 min-h-[500px] ${isHomeMode ? 'w-full' : ''}`}>
           {isHomeMode ? (
-             <div className="flex flex-col gap-8 pb-12 bg-slate-100/50 relative">
+             <div className="flex flex-col gap-6 md:gap-8 pb-12 bg-slate-100/50 relative">
                 {/* 3D Auto Sliding Hero Poster */}
-                <div className="relative w-full h-[400px] md:h-[600px] -mt-4 mb-4 [perspective:1000px] overflow-hidden bg-slate-900 border-b border-white/10 shadow-2xl">
+                <div className="relative w-full h-[280px] sm:h-[400px] md:h-[600px] -mt-4 mb-4 [perspective:1000px] overflow-hidden bg-slate-900 border-b border-white/10 shadow-2xl">
                    {heroSlides.map((slide, index) => {
                      const isCurrent = index === currentSlide;
                      const isPrev = index === (currentSlide - 1 + heroSlides.length) % heroSlides.length;
@@ -600,11 +725,11 @@ export default function UserDashboard() {
                        >
                          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/50 to-transparent z-10 pointer-events-none"></div>
                          <img src={slide.image} alt={slide.title.replace('<br/>',' ')} className="w-full h-full object-cover opacity-80" />
-                         <div className="absolute top-0 left-0 bottom-0 w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center z-[70] pointer-events-auto">
-                            <span className="text-[#febd69] font-bold tracking-widest uppercase mb-2 drop-shadow-md">{slide.tag}</span>
-                            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-4 drop-shadow-xl" dangerouslySetInnerHTML={{ __html: slide.title }}></h1>
-                            <p className="text-slate-200 text-lg mb-8 max-w-md drop-shadow-md font-medium">{slide.desc}</p>
-                            <button onClick={() => { setSearchInput(slide.query); executeSearch(); }} className="bg-[#febd69] text-slate-900 font-bold px-8 py-3.5 rounded-full w-fit hover:bg-[#f3a847] transition-colors shadow-[0_0_20px_rgba(254,189,105,0.4)] hover:shadow-[0_0_30px_rgba(254,189,105,0.6)] hover:scale-105 transform duration-200 select-none cursor-pointer">
+                         <div className="absolute top-0 left-0 bottom-0 w-full md:w-1/2 p-6 sm:p-12 md:p-16 flex flex-col justify-center z-[70] pointer-events-auto">
+                            <span className="text-[#febd69] text-xs sm:text-sm font-bold tracking-widest uppercase mb-1 sm:mb-2 drop-shadow-md">{slide.tag}</span>
+                            <h1 className="text-xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-2 sm:mb-4 drop-shadow-xl" dangerouslySetInnerHTML={{ __html: slide.title }}></h1>
+                            <p className="hidden sm:block text-slate-200 text-sm md:text-lg mb-6 md:mb-8 max-w-md drop-shadow-md font-medium">{slide.desc}</p>
+                            <button onClick={() => { setSearchInput(slide.query); executeSearch(); }} className="bg-[#febd69] text-slate-900 font-bold px-5 py-2 sm:px-8 sm:py-3.5 rounded-full text-xs sm:text-sm w-fit hover:bg-[#f3a847] transition-colors shadow-[0_0_20px_rgba(254,189,105,0.4)] hover:shadow-[0_0_30px_rgba(254,189,105,0.6)] hover:scale-105 transform duration-200 select-none cursor-pointer">
                               {slide.btn}
                             </button>
                          </div>
@@ -613,7 +738,7 @@ export default function UserDashboard() {
                    })}
                    
                    {/* Slide Navigation Dots */}
-                   <div className="absolute bottom-48 left-0 right-0 flex justify-center gap-3 z-40">
+                   <div className="absolute bottom-16 sm:bottom-32 md:bottom-48 left-0 right-0 flex justify-center gap-3 z-40">
                      {heroSlides.map((_, idx) => (
                        <button 
                          key={idx}
@@ -624,11 +749,11 @@ export default function UserDashboard() {
                    </div>
 
                    {/* Subtle bottom fade */}
-                   <div className="absolute bottom-0 left-0 right-0 h-60 bg-gradient-to-t from-slate-100 via-slate-100/40 to-transparent z-30 pointer-events-none"></div>
+                   <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-slate-100 via-slate-100/40 to-transparent z-30 pointer-events-none"></div>
                 </div>
 
                 {/* Main Content Area with Amazon-like overlap */}
-                <div className="max-w-[1600px] mx-auto w-full px-4 -mt-20 z-40 relative flex flex-col gap-8">
+                <div className="max-w-[1600px] mx-auto w-full px-3 sm:px-4 -mt-10 sm:-mt-16 md:-mt-20 z-40 relative flex flex-col gap-6 md:gap-8">
 
                   {/* Bento Grid layout for categories/highlights */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -859,7 +984,7 @@ export default function UserDashboard() {
       <Footer />
 
       {/* Shopping Assistant Floating widget bubble */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+      <div className="fixed bottom-24 right-4 md:bottom-6 md:right-6 z-40 flex flex-col items-end">
         {isWidgetOpen ? (
           <div className="w-80 md:w-96 h-[500px] bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
             {/* Widget Header */}
@@ -937,11 +1062,80 @@ export default function UserDashboard() {
         ) : (
           <button 
             onClick={() => setIsWidgetOpen(true)}
-            className="bg-[#0B192C] hover:bg-red-700 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border border-white/10"
+            className="hidden md:flex bg-[#0B192C] hover:bg-red-700 text-white w-14 h-14 rounded-full items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border border-white/10"
           >
             <ShoppingCart className="w-6 h-6 text-white animate-bounce" />
           </button>
         )}
+      </div>
+
+      {/* Floating Glassmorphic Mobile Navigation Bar */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md h-16 bg-[#0B192C]/95 backdrop-blur-md rounded-full shadow-[0_12px_36px_rgba(0,0,0,0.3)] border border-white/10 md:hidden z-50 flex items-center justify-around px-2 text-white">
+        <button 
+          onClick={() => {
+            setShowWishlistOnly(false);
+            setShowTopDropsOnly(false);
+            setSelectedCategory("All Categories");
+            setSearchInput("");
+            setSearch("");
+            setIsWidgetOpen(false);
+            navigate('/user');
+          }}
+          className={`flex flex-col items-center justify-center flex-1 h-full rounded-full transition-colors ${(!showWishlistOnly && !showTopDropsOnly && !isWidgetOpen) ? 'text-red-500 font-extrabold scale-105' : 'text-slate-400 hover:text-white'}`}
+        >
+          <Home className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-bold">Home</span>
+        </button>
+
+        <button 
+          onClick={() => {
+            setShowTopDropsOnly(true);
+            setShowWishlistOnly(false);
+            setSortBy('clicks');
+            setSelectedCategory("All Categories");
+            setSearch("");
+            setIsWidgetOpen(false);
+          }}
+          className={`relative flex flex-col items-center justify-center flex-1 h-full rounded-full transition-colors ${showTopDropsOnly ? 'text-red-500 font-extrabold scale-105' : 'text-slate-400 hover:text-white'}`}
+        >
+          <Zap className="w-5 h-5 mb-0.5 animate-pulse text-yellow-400" />
+          <span className="text-[10px] font-bold">Top Drops</span>
+        </button>
+
+        <button 
+          onClick={() => {
+            setShowWishlistOnly(true);
+            setShowTopDropsOnly(false);
+            setSelectedCategory("All Categories");
+            setSearch("");
+            setIsWidgetOpen(false);
+          }}
+          className={`relative flex flex-col items-center justify-center flex-1 h-full rounded-full transition-colors ${showWishlistOnly ? 'text-red-500 font-extrabold scale-105' : 'text-slate-400 hover:text-white'}`}
+        >
+          <Heart className={`w-5 h-5 mb-0.5 ${wishlist.length > 0 ? 'fill-red-500 text-red-500' : ''}`} />
+          <span className="text-[10px] font-bold">Wishlist</span>
+          {wishlist.length > 0 && (
+            <span className="absolute top-2 right-5 bg-red-600 text-white text-[8px] font-bold h-4 w-4 flex items-center justify-center rounded-full border border-[#0B192C]">
+              {wishlist.length}
+            </span>
+          )}
+        </button>
+
+        <button 
+          onClick={() => setIsWidgetOpen(!isWidgetOpen)}
+          className={`flex flex-col items-center justify-center flex-1 h-full rounded-full transition-colors ${isWidgetOpen ? 'text-red-500 font-extrabold scale-105' : 'text-slate-400 hover:text-white'}`}
+        >
+          <MessageSquare className="w-5 h-5 mb-0.5 text-blue-400" />
+          <span className="text-[10px] font-bold">AI Agent</span>
+        </button>
+
+        <button 
+          onClick={() => navigate('/user/profile')}
+          className="flex flex-col items-center justify-center flex-1 h-full rounded-full text-slate-400 hover:text-white transition-colors"
+        >
+          <User className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-bold">Profile</span>
+        </button>
       </div>
     </div>
   );
