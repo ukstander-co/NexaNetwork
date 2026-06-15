@@ -1,8 +1,11 @@
 # nixpacks.toml
 # This configuration file ensures Nixpacks builds and runs our full-stack Express server properly
 
+[variables]
+NODE_OPTIONS = "--max-old-space-size=768"
+
 [phases.install]
-cmds = ["npm install"]
+cmds = ["npm install --no-audit --no-fund --prefer-offline"]
 
 [phases.build]
 cmds = ["npm run build"]

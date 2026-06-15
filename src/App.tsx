@@ -23,7 +23,6 @@ import UserDataRights from './pages/UserDataRights';
 import InfoPage from './pages/InfoPage';
 import BlogList from './pages/BlogList';
 import BlogPost from './pages/BlogPost';
-import ForgetPassword from './pages/ForgetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import SplashScreen from './components/SplashScreen';
@@ -86,7 +85,7 @@ export default function App() {
               <Route path="/" element={<PublicRoute><Navigate to="/login" replace /></PublicRoute>} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-              <Route path="/forget-password" element={<PublicRoute><ForgetPassword /></PublicRoute>} />
+              <Route path="/forget-password" element={<Navigate to="/login" replace />} />
               <Route path="/user" element={<ProtectedRoute reqRole="user"><UserDashboard /></ProtectedRoute>} />
               <Route path="/user/profile" element={<ProtectedRoute reqRole="user"><UserProfile /></ProtectedRoute>} />
               <Route path="/category/:categoryId" element={<ProtectedRoute reqRole="user"><UserDashboard /></ProtectedRoute>} />

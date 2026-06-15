@@ -38,6 +38,8 @@ export default function Signup() {
       }
       
       if (response.ok) {
+        localStorage.setItem('remembered_email', email);
+        localStorage.setItem('remembered_password', password);
         toast.success('Registration Initiated. Welcome!', {
           duration: 3000,
           icon: '💎',
