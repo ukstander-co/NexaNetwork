@@ -11,6 +11,28 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      minify: 'esbuild',
+      cssMinify: true,
+      sourcemap: false,
+      chunkSizeWarningLimit: 1200,
+      rollupOptions: {
+        maxParallelFileOps: 2,
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('lottie') || id.includes('lottie-web') || id.includes('lottie-react')) {
+                return 'lottie-vendor';
+              }
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'charts-vendor';
+              }
+              return 'vendor';
+            }
+          }
+        }
+      }
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
