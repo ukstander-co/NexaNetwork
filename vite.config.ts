@@ -12,7 +12,7 @@ export default defineConfig(() => {
       },
     },
     build: {
-      minify: false,
+      minify: 'esbuild',
       cssMinify: true,
       sourcemap: false,
       chunkSizeWarningLimit: 2000,
