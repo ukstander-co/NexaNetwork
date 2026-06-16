@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createClient } from '@libsql/client/web';
 import bcrypt from 'bcryptjs';
