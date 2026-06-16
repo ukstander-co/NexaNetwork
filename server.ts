@@ -10,27 +10,27 @@ import cron from 'node-cron';
 
 const app = express();
 
-let dbUrl = process.env.TURSO_DATABASE_URL || "libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io";
+let dbUrl = (process.env.TURSO_DATABASE_URL || "").trim() || "libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io";
 if (dbUrl.startsWith("libsql://")) {
   dbUrl = dbUrl.replace("libsql://", "https://");
 }
-const dbToken = process.env.TURSO_AUTH_TOKEN || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODE0MjAxMDIsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.oDnwD6LaPZ04etSzkj3eYGEm9o7uSKQ22nJ-QtJzKIbg3KpeouITs7P-Qd-lZ2JkkXlKud3fXuRyFT1Cx1UiAQ";
+const dbToken = (process.env.TURSO_AUTH_TOKEN || "").trim() || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODE0MjAxMDIsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.oDnwD6LaPZ04etSzkj3eYGEm9o7uSKQ22nJ-QtJzKIbg3KpeouITs7P-Qd-lZ2JkkXlKud3fXuRyFT1Cx1UiAQ";
 
 const db = createClient({
   url: dbUrl,
   authToken: dbToken,
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
+const JWT_SECRET = (process.env.JWT_SECRET || "").trim() || 'super-secret-key-for-dev';
 
 // Initialize Default Groq AI Client (Global SEO)
 const groq = new Groq({ 
-  apiKey: process.env.GROQ_API_KEY || "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" 
+  apiKey: (process.env.GROQ_API_KEY || "").trim() || "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" 
 });
 
 // Initialize Product Generation Groq Client
 const productGroq = new Groq({
-  apiKey: process.env.PRODUCT_GROQ_API_KEY || "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"
+  apiKey: (process.env.PRODUCT_GROQ_API_KEY || "").trim() || "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"
 });
 
 async function initializeDatabase() {
@@ -3209,7 +3209,7 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
   });
 
   const shoppingAssistantGroq = new Groq({ 
-    apiKey: process.env.SHOPPING_ASSISTANT_GROQ_API_KEY || "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" 
+    apiKey: (process.env.SHOPPING_ASSISTANT_GROQ_API_KEY || "").trim() || "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" 
   });
 
   app.post('/api/chat', async (req, res) => {
