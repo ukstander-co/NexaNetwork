@@ -1,0 +1,24 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executing remote ssh commands using password/key
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # Ya private key/password
+          port: 22
+          script: |
+            cd /home/ubuntu/UKstander.shop
+            git pull origin main
+            npm install --no-audit --no-fund
+            NODE_OPTIONS="--max-old-space-size=1536" npm run build
+            pm2 restart ukstander-shop
