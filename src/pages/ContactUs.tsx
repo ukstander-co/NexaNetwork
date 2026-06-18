@@ -36,20 +36,56 @@ export default function ContactUs() {
             </div>
           ) : (
             <>
-              <p>If you have any questions about our curated deals, privacy practices, or affiliate relationships, please reach out to us.</p>
+              <p>If you have any questions about our curated deals, our platform, or policies, please secure connection with our respective departments:</p>
               
-              <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm mt-6">
-                <div className="flex items-center gap-4 mb-6">
-                   <Mail className="w-6 h-6 text-indigo-500" />
-                   <span className="font-semibold text-slate-800 text-lg">Email:</span>
-                   <a href="mailto:support@ukstander.shop" className="text-indigo-600 hover:text-indigo-700 font-medium">support@ukstander.shop</a>
+              <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm mt-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                  <div className="space-y-1">
+                    <span className="block font-black text-slate-800 text-sm uppercase tracking-wider">General Inquiries</span>
+                    <a href="mailto:info@ukstander.shop" className="text-indigo-600 hover:text-indigo-800 text-base font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> info@ukstander.shop
+                    </a>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="block font-black text-slate-800 text-sm uppercase tracking-wider">Customer & Account Support</span>
+                    <a href="mailto:support@ukstander.shop" className="text-indigo-600 hover:text-indigo-800 text-base font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> support@ukstander.shop
+                    </a>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="block font-black text-slate-800 text-sm uppercase tracking-wider">Retailers & Affiliates</span>
+                    <a href="mailto:affiliate@ukstander.shop" className="text-indigo-600 hover:text-indigo-800 text-base font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> affiliate@ukstander.shop
+                    </a>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="block font-black text-slate-800 text-sm uppercase tracking-wider">Submit Deals & Submit Drops</span>
+                    <a href="mailto:deals@ukstander.shop" className="text-indigo-600 hover:text-indigo-800 text-base font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> deals@ukstander.shop
+                    </a>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="block font-black text-slate-800 text-sm uppercase tracking-wider">Alerts & Subscriptions</span>
+                    <a href="mailto:alerts@ukstander.shop" className="text-indigo-600 hover:text-indigo-800 text-base font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> alerts@ukstander.shop
+                    </a>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="block font-black text-slate-800 text-sm uppercase tracking-wider">Data Protection & Privacy</span>
+                    <a href="mailto:admin@ukstander.shop" className="text-indigo-600 hover:text-indigo-800 text-base font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> admin@ukstander.shop
+                    </a>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 mb-6">
-                   <Phone className="w-6 h-6 text-indigo-500" />
-                   <span className="font-semibold text-slate-800 text-lg">Phone:</span>
-                   <span className="text-slate-600 font-medium">+44 20 7946 0958</span>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 text-sm text-slate-500">
+                  <div className="flex items-center gap-3">
+                     <Phone className="w-5 h-5 text-indigo-500" />
+                     <span className="font-semibold text-slate-800">Phone:</span>
+                     <span className="text-slate-600 font-medium">+44 20 7946 0958</span>
+                  </div>
+                  <p className="font-semibold bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-600">Business Hours: Mon - Fri, 9:00 AM - 5:00 PM (GMT)</p>
                 </div>
-                <p className="text-sm mt-8 text-slate-500 font-medium bg-slate-100 p-3 rounded-xl border border-slate-200 inline-block">Business Hours: Monday - Friday, 9:00 AM - 5:00 PM (GMT)</p>
               </div>
             </>
           )}

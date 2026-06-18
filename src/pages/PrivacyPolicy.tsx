@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
 
               <section>
                 <h2 className="text-xl font-bold text-slate-800 mb-3">5. Contact Us</h2>
-                <p>If you have questions about this privacy policy, please contact us at privacy@ukstander.shop.</p>
+                <p>If you have questions about this privacy policy, please contact us at <a href="mailto:admin@ukstander.shop" className="text-indigo-600 hover:text-indigo-700 font-medium">admin@ukstander.shop</a>.</p>
               </section>
             </>
           )}

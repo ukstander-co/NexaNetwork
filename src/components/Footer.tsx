@@ -159,7 +159,7 @@ export default function Footer({ minimal = false }: FooterProps) {
                 </section>
                 <section>
                   <h4 className="font-black text-slate-800 mb-1">5. Contacts</h4>
-                  <p className="text-xs">If you have questions about this privacy policy, please contact us at privacy@ukstander.shop.</p>
+                  <p className="text-xs">If you have questions about this privacy policy, please contact us at <a href="mailto:admin@ukstander.shop" className="text-indigo-600 hover:text-indigo-700 font-medium">admin@ukstander.shop</a>.</p>
                 </section>
               </>
             )}

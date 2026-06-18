@@ -2819,6 +2819,79 @@ Return valid JSON ONLY (no comments) in this format:
     }
   });
 
+  // ImprovMX Integration Proxy Endpoints
+  const IMPROVMX_KEY = (process.env.IMPROVMX_API_KEY || "").trim() || "sk_a7b4925e3edb48dc891e9f53c008b6b8";
+  
+  // 1. Get Domain Status
+  app.get('/api/admin/email-forwarding/status', async (req, res) => {
+    try {
+      const response = await axios.get('https://api.improvmx.com/v3/domains/ukstander.shop', {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`api:${IMPROVMX_KEY}`).toString('base64')}`
+        }
+      });
+      res.json(response.data);
+    } catch (e: any) {
+      console.error("ImprovMX Status error", e.response?.data || e.message);
+      res.status(e.response?.status || 500).json(e.response?.data || { error: e.message });
+    }
+  });
+
+  // 2. Get Domain Aliases
+  app.get('/api/admin/email-forwarding/aliases', async (req, res) => {
+    try {
+      const response = await axios.get('https://api.improvmx.com/v3/domains/ukstander.shop/aliases', {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`api:${IMPROVMX_KEY}`).toString('base64')}`
+        }
+      });
+      res.json(response.data);
+    } catch (e: any) {
+      console.error("ImprovMX Aliases get error", e.response?.data || e.message);
+      res.status(e.response?.status || 500).json(e.response?.data || { error: e.message });
+    }
+  });
+
+  // 3. Create Alias
+  app.post('/api/admin/email-forwarding/aliases', async (req, res) => {
+    const { alias, forward } = req.body;
+    if (!alias || !forward) {
+      res.status(400).json({ error: "alias and forward fields are required" });
+      return;
+    }
+    try {
+      const response = await axios.post('https://api.improvmx.com/v3/domains/ukstander.shop/aliases', {
+        alias,
+        forward
+      }, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`api:${IMPROVMX_KEY}`).toString('base64')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      res.json(response.data);
+    } catch (e: any) {
+      console.error("ImprovMX Alias creation error", e.response?.data || e.message);
+      res.status(e.response?.status || 500).json(e.response?.data || { error: e.message });
+    }
+  });
+
+  // 4. Delete Alias
+  app.delete('/api/admin/email-forwarding/aliases/:alias', async (req, res) => {
+    const { alias } = req.params;
+    try {
+      const response = await axios.delete(`https://api.improvmx.com/v3/domains/ukstander.shop/aliases/${alias}`, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`api:${IMPROVMX_KEY}`).toString('base64')}`
+        }
+      });
+      res.json(response.data);
+    } catch (e: any) {
+      console.error("ImprovMX Alias delete error", e.response?.data || e.message);
+      res.status(e.response?.status || 500).json(e.response?.data || { error: e.message });
+    }
+  });
+
   // Backward-compatible Reply publisher to active user chat
   app.post('/api/admin/chat-reply', async (req, res) => {
     const { email, content } = req.body;

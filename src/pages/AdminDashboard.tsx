@@ -33,7 +33,8 @@ import {
   CheckCircle2,
   Trash,
   Eye,
-  Menu
+  Menu,
+  Mail
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -48,10 +49,20 @@ import {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'insights' | 'products' | 'users' | 'pages' | 'chats' | 'trends' | 'alerts' | 'blogs' | 'deployment'>('insights');
+  const [activeTab, setActiveTab] = useState<'insights' | 'products' | 'users' | 'pages' | 'chats' | 'trends' | 'alerts' | 'blogs' | 'deployment' | 'emails'>('insights');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+
+  // ImprovMX Email Forwarding States
+  const [domainStatus, setDomainStatus] = useState<any>(null);
+  const [domainAliases, setDomainAliases] = useState<any[]>([]);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [emailStatusError, setEmailStatusError] = useState('');
+  const [newAliasName, setNewAliasName] = useState('');
+  const [newAliasForward, setNewAliasForward] = useState('ukstander.co@gmail.com');
+  const [addingAlias, setAddingAlias] = useState(false);
+  const [deletingAlias, setDeletingAlias] = useState<string | null>(null);
 
   // AI Trend Discovery Suggestions States
   const [trendSuggestions, setTrendSuggestions] = useState<any[]>([]);
@@ -389,8 +400,40 @@ export default function AdminDashboard() {
       fetchTrendSuggestions();
     } else if (activeTab === 'blogs') {
       fetchBlogs();
+    } else if (activeTab === 'emails') {
+      fetchEmailStatus();
     }
   }, [activeTab]);
+
+  const fetchEmailStatus = () => {
+    setLoadingEmails(true);
+    setEmailStatusError('');
+    Promise.all([
+      fetch('/api/admin/email-forwarding/status').then(res => {
+        if (!res.ok) throw new Error("Could not load ImprovMX status. Verify API keys.");
+        return res.json();
+      }),
+      fetch('/api/admin/email-forwarding/aliases').then(res => {
+        if (!res.ok) throw new Error("Could not load aliases. Verify server route.");
+        return res.json();
+      })
+    ])
+    .then(([statusData, aliasesData]) => {
+      setDomainStatus(statusData.domain || statusData);
+      if (aliasesData && Array.isArray(aliasesData.aliases)) {
+        setDomainAliases(aliasesData.aliases);
+      } else if (Array.isArray(aliasesData)) {
+        setDomainAliases(aliasesData);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      setEmailStatusError(err.message || "Failed to load ImprovMX data.");
+    })
+    .finally(() => {
+      setLoadingEmails(false);
+    });
+  };
 
   const fetchPriceAlerts = () => {
     fetch('/api/admin/price-alerts')
@@ -782,6 +825,14 @@ export default function AdminDashboard() {
             className={`w-full px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer text-left mb-2 ${activeTab === 'blogs' ? 'bg-[#0B192C] text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
           >
             <FileText className={`w-4 h-4 ${activeTab === 'blogs' ? 'text-white' : 'text-slate-500'}`} /> Affiliate Blogs ({blogsList.length})
+          </button>
+
+          <button 
+            id="tab-emails"
+            onClick={() => { setActiveTab('emails'); setIsSidebarOpen(false); }} 
+            className={`w-full px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer text-left mb-2 ${activeTab === 'emails' ? 'bg-[#0B192C] text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+          >
+            <Mail className={`w-4 h-4 ${activeTab === 'emails' ? 'text-white' : 'text-slate-500'}`} /> ImprovMX Emails
           </button>
         </div>
 
@@ -2231,6 +2282,281 @@ export default function AdminDashboard() {
                 </div>
 
               </div>
+            </div>
+          )}
+
+          {activeTab === 'emails' && (
+            <div id="pane-emails" className="space-y-6 animate-fade-in text-left font-sans">
+              {/* Header Title card */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
+                    <Mail className="w-5 h-5 text-indigo-600 animate-pulse" />
+                    UKStander Email Forwarding Center (ImprovMX Integration)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed font-semibold">
+                    Verify domain propagation, monitor MX/SPF settings to prevent bounce backs, and instantly provision custom professional email aliases for ukstander.shop.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchEmailStatus}
+                  disabled={loadingEmails}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest px-4 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap self-start"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingEmails ? 'animate-spin' : ''}`} />
+                  Refresh Connection
+                </button>
+              </div>
+
+              {emailStatusError && (
+                <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl text-rose-700 text-xs flex items-center gap-3 font-semibold">
+                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                  <div>
+                    <span className="font-bold">ImprovMX Status Error: </span>
+                    {emailStatusError}
+                  </div>
+                </div>
+              )}
+
+              {loadingEmails && !domainStatus ? (
+                <div className="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-slate-200">
+                  <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+                  <p className="text-xs text-slate-500 font-medium">Fetching secure domain routing credentials from ImprovMX server...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Left column: Domain health & diagnostics */}
+                  <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                      <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-4">Domain Diagnostic Health</h4>
+                      
+                      {domainStatus ? (
+                        <div className="space-y-4 text-xs text-slate-600 font-semibold font-sans">
+                          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                            <span className="font-bold text-slate-700">Domain:</span>
+                            <span className="font-mono text-indigo-600 font-extrabold">{domainStatus.domain || 'ukstander.shop'}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                            <span className="font-bold text-slate-700">ImprovMX Status:</span>
+                            {domainStatus.active ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">FORWARDING ACTIVE</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">PENDING DNS SETUP</span>
+                            )}
+                          </div>
+
+                          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                            <span className="font-bold text-slate-700">MX Setting:</span>
+                            {domainStatus.mx && (domainStatus.mx.valid || domainStatus.mx.correct) ? (
+                              <span className="flex items-center gap-1 font-bold text-green-600">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Correct
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 font-bold text-rose-600">
+                                <AlertCircle className="w-3.5 h-3.5" /> Action Required
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                            <span className="font-bold text-slate-700">SPF Setting:</span>
+                            {domainStatus.spf && (domainStatus.spf.valid || domainStatus.spf.correct) ? (
+                              <span className="flex items-center gap-1 font-bold text-green-600">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Correct
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 font-bold text-rose-600">
+                                <AlertCircle className="w-3.5 h-3.5" /> No SPF Record
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 font-medium">No domain status retrieved. Click Refresh to query.</p>
+                      )}
+                    </div>
+
+                    <div className="bg-amber-50/70 p-6 rounded-2xl border border-amber-200">
+                      <h4 className="text-xs font-black uppercase text-amber-800 tracking-wider mb-2">📌 Setup Guide (URDU / ENG)</h4>
+                      <p className="text-[11px] text-amber-900 font-bold mb-3 leading-relaxed">
+                        Agar email bounce ho rahi ha "Address not found", toh iska matlab DNS configure hy par slow hy ya records missing hn:
+                      </p>
+                      <ol className="list-decimal list-inside text-[11px] text-amber-900 space-y-2 leading-relaxed font-semibold">
+                        <li>
+                          <span className="font-bold">Add SPF in Hostinger (Crucial):</span> Go to Hostinger DNS Panel, create a new record:
+                          <div className="bg-white p-2 rounded-lg border border-amber-100 font-mono text-[9px] mt-1 select-all break-all text-slate-700 font-medium">
+                            TXT | Name: @ | Value: v=spf1 include:spf.improvmx.com ~all
+                          </div>
+                        </li>
+                        <li>
+                          <span className="font-bold">MX Records setting checker:</span> Ensure MX records point strictly to:
+                          <div className="bg-white p-2 rounded-lg border border-amber-100 font-mono text-[9px] mt-1 space-y-1 text-slate-700 font-medium pb-2">
+                            <div>mx1.improvmx.com (Priority 10)</div>
+                            <div>mx2.improvmx.com (Priority 20)</div>
+                          </div>
+                        </li>
+                        <li>
+                          <span className="font-bold">Wait for Propagation:</span> Changes take 5 to 60 minutes to go live across international servers.
+                        </li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* Right column: Create and Manage Aliases */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Create New Alias card */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                      <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-4">Create New Custom Alias</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Alias Name (e.g. info, query)</label>
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              value={newAliasName}
+                              onChange={(e) => setNewAliasName(e.target.value)}
+                              placeholder="contact"
+                              className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 pr-28 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold font-mono text-slate-800 bg-slate-50"
+                            />
+                            <span className="absolute right-3 text-xs text-slate-400 font-black">@ukstander.shop</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Forwards Target Email</label>
+                          <input
+                            type="email"
+                            value={newAliasForward}
+                            onChange={(e) => setNewAliasForward(e.target.value)}
+                            placeholder="ukstander.co@gmail.com"
+                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-700 bg-slate-50"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          onClick={() => {
+                            if (!newAliasName) {
+                              alert("Please enter an alias name (e.g. 'help').");
+                              return;
+                            }
+                            setAddingAlias(true);
+                            fetch('/api/admin/email-forwarding/aliases', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ alias: newAliasName.trim(), forward: newAliasForward.trim() })
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                              if (data.success) {
+                                setSuccess(`Instantly created email alias ${newAliasName}@ukstander.shop!`);
+                                setNewAliasName('');
+                                fetchEmailStatus();
+                              } else {
+                                alert(data.error || "Could not save alias in ImprovMX.");
+                              }
+                            })
+                            .catch(err => {
+                              console.error(err);
+                              alert("Failed to connect to backend alias API.");
+                            })
+                            .finally(() => setAddingAlias(false));
+                          }}
+                          disabled={addingAlias}
+                          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-lg transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          {addingAlias ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Creating Live Routing...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              Activate Email Alias
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom aliases roster */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                      <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-4">Active Custom Forwarding Roster</h4>
+                      
+                      {domainAliases.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-xs">
+                          <Mail className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="font-semibold">No custom aliases retrieved from ImprovMX yet.</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
+                                <th className="pb-3 select-none">Sender Alias Email Address</th>
+                                <th className="pb-3 select-none font-sans">Forwarding Destination Target</th>
+                                <th className="pb-3 select-none text-center">Live Status</th>
+                                <th className="pb-3 text-right">Task</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {domainAliases.map((al: any) => (
+                                <tr key={al.alias} className="border-b border-slate-100/60 hover:bg-slate-50/50">
+                                  <td className="py-3 font-mono font-bold text-slate-800">
+                                    {al.alias}@ukstander.shop
+                                  </td>
+                                  <td className="py-3 text-slate-600 font-semibold font-mono">
+                                    {al.forward}
+                                  </td>
+                                  <td className="py-3 text-center">
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 uppercase">
+                                      Active
+                                    </span>
+                                  </td>
+                                  <td className="py-3 text-right">
+                                    <button
+                                      onClick={() => {
+                                        if (!confirm(`Are you absolutely sure you want to permanently delete alias: ${al.alias}@ukstander.shop?`)) return;
+                                        setDeletingAlias(al.alias);
+                                        fetch(`/api/admin/email-forwarding/aliases/${al.alias}`, {
+                                          method: 'DELETE'
+                                        })
+                                        .then(res => res.json())
+                                        .then(data => {
+                                          if (data.success) {
+                                            setSuccess(`Permanently removed ${al.alias}@ukstander.shop alias.`);
+                                            fetchEmailStatus();
+                                          } else {
+                                            alert(data.error || "Deletion call failed.");
+                                          }
+                                        })
+                                        .catch(err => {
+                                          console.error(err);
+                                          alert("Failed to submit deletion parameter.");
+                                        })
+                                        .finally(() => setDeletingAlias(null));
+                                      }}
+                                      disabled={deletingAlias === al.alias}
+                                      className="text-rose-500 hover:text-rose-700 disabled:opacity-50 transition-all font-bold tracking-tight uppercase text-[10px] cursor-pointer"
+                                    >
+                                      {deletingAlias === al.alias ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              )}
             </div>
           )}
 

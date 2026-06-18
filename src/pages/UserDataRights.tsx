@@ -55,7 +55,7 @@ export default function UserDataRights() {
 
               <section>
                 <h2 className="text-xl font-bold text-slate-800 mb-3">Exercising Your Rights</h2>
-                <p>If you make a request, we have one month to respond to you. If you would like to exercise any of these rights, please contact us at our email: <a href="mailto:privacy@ukstander.shop" className="text-indigo-600 hover:text-indigo-700 font-medium">privacy@ukstander.shop</a>.</p>
+                <p>If you make a request, we have one month to respond to you. If you would like to exercise any of these rights, please contact us at our email: <a href="mailto:admin@ukstander.shop" className="text-indigo-600 hover:text-indigo-700 font-medium">admin@ukstander.shop</a>.</p>
               </section>
             </>
           )}
