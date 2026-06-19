@@ -84,7 +84,7 @@ export default function Signup() {
         {/* Right Side: Branding & Info (Hidden on mobile) */}
         <div className="hidden lg:flex lg:w-1/2 p-12 xl:p-20 flex-col justify-between relative overflow-hidden bg-[#052e16]">
           <div className="absolute inset-0 opacity-20">
-            <img src={ukstanderAffiliateBg} alt="Background" className="w-full h-full object-cover mix-blend-overlay" />
+            <img src={ukstanderAffiliateBg} alt="Background" fetchPriority="high" className="w-full h-full object-cover mix-blend-overlay" />
             <div className="absolute inset-0 bg-gradient-to-b from-[#052e16] via-[#052e16]/80 to-[#042f2e]/90" />
           </div>
           
@@ -117,7 +117,7 @@ export default function Signup() {
                 <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-3">
                   <feature.icon className="w-5 h-5 text-[#34d399]" />
                 </div>
-                <h3 className="text-white font-bold text-sm">{feature.title}</h3>
+                <div className="text-white font-bold text-sm">{feature.title}</div>
                 <p className="text-emerald-200/60 text-xs mt-1">{feature.desc}</p>
               </div>
             ))}
@@ -220,9 +220,9 @@ export default function Signup() {
               </div>
               
               {/* Trust Badge Mobile */}
-              <div className="mt-8 flex items-center justify-center gap-2 text-slate-500 lg:hidden text-center opacity-80">
+              <div className="mt-8 flex items-center justify-center gap-2 text-slate-600 lg:hidden text-center">
                  <ShieldCheck className="w-4 h-4" />
-                 <span className="text-xs font-bold uppercase tracking-widest text-slate-600">Amazon Affiliate Verified</span>
+                 <span className="text-xs font-bold uppercase tracking-widest text-slate-700">Amazon Affiliate Verified</span>
               </div>
            </motion.div>
         </div>

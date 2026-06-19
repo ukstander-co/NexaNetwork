@@ -79,7 +79,7 @@ export default function ForgetPassword() {
         {/* Left Side: Branding & Info (Hidden on mobile) */}
         <div className="hidden lg:flex lg:w-1/2 p-12 xl:p-20 flex-col justify-between relative overflow-hidden bg-[#431407]">
           <div className="absolute inset-0 opacity-20">
-            <img src={ukstanderAffiliateBg} alt="Background" className="w-full h-full object-cover mix-blend-overlay grayscale contrast-125 rounded-none" />
+            <img src={ukstanderAffiliateBg} alt="Background" fetchPriority="high" className="w-full h-full object-cover mix-blend-overlay grayscale contrast-125 rounded-none" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#431407] via-[#431407]/80 to-[#7c2d12]/90" />
           </div>
           
@@ -108,7 +108,7 @@ export default function ForgetPassword() {
                 <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-3">
                   <feature.icon className="w-5 h-5 text-[#fdba74]" />
                 </div>
-                <h3 className="text-white font-bold text-sm">{feature.title}</h3>
+                <div className="text-white font-bold text-sm">{feature.title}</div>
                 <p className="text-orange-200/60 text-xs mt-1">{feature.desc}</p>
               </div>
             ))}
