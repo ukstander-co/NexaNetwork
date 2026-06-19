@@ -12,6 +12,7 @@ import {
   Bell, 
   TrendingUp, 
   AlertCircle, 
+  Search, 
   ChevronRight,
   Edit2,
   Trash2,
@@ -69,6 +70,13 @@ export default function AdminDashboard() {
   const [loadingTrends, setLoadingTrends] = useState(false);
   const [trendsActionLoader, setTrendsActionLoader] = useState<string | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<any | null>(null);
+  
+  // Predictive Trend Spotter States
+  const [trendsSubTab, setTrendsSubTab] = useState<'hunt' | 'spotter'>('spotter');
+  const [predictiveTrends, setPredictiveTrends] = useState<any[]>([]);
+  const [loadingPredictive, setLoadingPredictive] = useState(false);
+  const [generatingPredictive, setGeneratingPredictive] = useState(false);
+  const [predictiveSearch, setPredictiveSearch] = useState('');
   const [approveForm, setApproveForm] = useState({
     title: '',
     description: '',
@@ -119,6 +127,9 @@ export default function AdminDashboard() {
     header_promo: '',
     header_links: '',
     rainforest_api_key: '',
+    rainforest_sort_by: 'average_customer_reviews',
+    rainforest_min_rating: '0.0',
+    rainforest_min_reviews: '0',
     footer_company_heading: '',
     footer_company_links: '',
     footer_support_heading: '',
@@ -281,6 +292,9 @@ export default function AdminDashboard() {
           header_promo: data.header_promo || '',
           header_links: data.header_links || '',
           rainforest_api_key: data.rainforest_api_key || '',
+          rainforest_sort_by: data.rainforest_sort_by || 'average_customer_reviews',
+          rainforest_min_rating: data.rainforest_min_rating || '0.0',
+          rainforest_min_reviews: data.rainforest_min_reviews || '0',
           footer_company_heading: data.footer_company_heading || '',
           footer_company_links: data.footer_company_links || '',
           footer_support_heading: data.footer_support_heading || '',
@@ -398,6 +412,7 @@ export default function AdminDashboard() {
       fetchProducts();
     } else if (activeTab === 'trends') {
       fetchTrendSuggestions();
+      fetchPredictiveTrends();
     } else if (activeTab === 'blogs') {
       fetchBlogs();
     } else if (activeTab === 'emails') {
@@ -457,6 +472,22 @@ export default function AdminDashboard() {
       .catch(err => {
         console.error("Error loading trend suggestions:", err);
         setLoadingTrends(false);
+      });
+  };
+
+  const fetchPredictiveTrends = () => {
+    setLoadingPredictive(true);
+    fetch('/api/admin/predictive-trends')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setPredictiveTrends(data);
+        }
+        setLoadingPredictive(false);
+      })
+      .catch(err => {
+        console.error("Error loading predictive trends:", err);
+        setLoadingPredictive(false);
       });
   };
 
@@ -806,9 +837,9 @@ export default function AdminDashboard() {
           <button 
             id="tab-trends"
             onClick={() => { setActiveTab('trends'); setIsSidebarOpen(false); }} 
-            className={`w-full px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer text-left ${activeTab === 'trends' ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+            className={`w-full px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer text-left ${activeTab === 'trends' ? 'bg-emerald-700 text-white shadow-md' : 'text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100/70 border border-emerald-100/50'}`}
           >
-            <Sparkles className="w-4 h-4 text-emerald-500" /> Trends & AI Hunting
+            <Sparkles className={`w-4 h-4 ${activeTab === 'trends' ? 'text-white' : 'text-emerald-600 animate-pulse'}`} /> Trends & AI Hunting
           </button>
           
           <button 
@@ -1037,6 +1068,30 @@ export default function AdminDashboard() {
                     <span className="text-xs font-black text-slate-900">{analytics.wishlistCount}</span>
                   </div>
                 </div>
+
+                {/* LLaMA-3 Trend Spotter Promotion Status Widget */}
+                <div className="bg-gradient-to-br from-indigo-950 via-[#0B192C] to-slate-900 text-white p-4.5 rounded-xl border border-indigo-900 shadow-sm relative overflow-hidden flex flex-col gap-3 mt-2">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full filter blur-xl"></div>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#10B981] font-mono">LLaMA-3 Engine Active</span>
+                    </div>
+                    <h4 className="text-[11px] font-black uppercase tracking-wide text-white">
+                      UK Predictive Trend Spotter
+                    </h4>
+                    <p className="text-[9.5px] text-slate-300 leading-normal mt-1">
+                      Engineered to analyze Google.co.uk patterns and discover commercial opportunities with high UK intent.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => { setActiveTab('trends'); setTrendsSubTab('spotter'); }}
+                    className="w-full bg-[#10B981] hover:bg-emerald-500 text-slate-950 font-black text-[9px] uppercase tracking-widest py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    Open Trends Dashboard &rarr;
+                  </button>
+                </div>
+
                 <div className="mt-auto bg-blue-50 border border-blue-100 p-4 rounded-xl text-blue-800 text-[10px] uppercase font-bold tracking-wider leading-relaxed text-center">
                   ● Core Node connected to AWS west-1 cluster
                 </div>
@@ -1557,20 +1612,71 @@ export default function AdminDashboard() {
                         placeholder="© 2026, UKStander.shop, Inc. or affiliates"
                       />
                     </div>
-                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                      <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3" /> Rainforest Amazon API Key
-                      </label>
-                      <input 
-                        type="password" 
-                        value={globalSettings.rainforest_api_key} 
-                        onChange={e => setGlobalSettings({ ...globalSettings, rainforest_api_key: e.target.value })} 
-                        className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                        placeholder="Paste your Rainforest API key here"
-                      />
-                      <p className="text-[9px] text-emerald-600 font-medium mt-2 leading-tight">
-                        When the 100-request limit is reached, simply update this key with a new one from your Rainforest account to resume automated hunts.
-                      </p>
+                    <div className="bg-emerald-50/70 p-5 rounded-2xl border border-emerald-100 flex flex-col gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> Rainforest Amazon API Key
+                        </label>
+                        <input 
+                          type="password" 
+                          value={globalSettings.rainforest_api_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, rainforest_api_key: e.target.value })} 
+                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          placeholder="Paste your Rainforest API key here"
+                        />
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          When the 100-request limit is reached, simply update this key with a new one from your Rainforest account to resume automated hunts.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-emerald-100/60 pt-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">
+                            Sort Amazon Search By
+                          </label>
+                          <select
+                            value={globalSettings.rainforest_sort_by || 'average_customer_reviews'}
+                            onChange={e => setGlobalSettings({ ...globalSettings, rainforest_sort_by: e.target.value })}
+                            className="w-full bg-white border border-emerald-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="average_customer_reviews">Top Reviewed (Highly Rated)</option>
+                            <option value="featured">Featured / Default Amazon Sort</option>
+                            <option value="most_recent">Most Recent / New Releases</option>
+                            <option value="price_low_to_high">Price: Low to High</option>
+                            <option value="price_high_to_low">Price: High to Low</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">
+                            Min Rating Filter (e.g. 4.2)
+                          </label>
+                          <input 
+                            type="number" 
+                            step="0.1"
+                            min="0"
+                            max="5"
+                            value={globalSettings.rainforest_min_rating || '0.0'} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, rainforest_min_rating: e.target.value })} 
+                            className="w-full bg-white border border-emerald-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="0.0 for no limit"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">
+                            Min Review Count Filter
+                          </label>
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={globalSettings.rainforest_min_reviews || '0'} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, rainforest_min_reviews: e.target.value })} 
+                            className="w-full bg-white border border-emerald-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="0 for no limit"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1908,8 +2014,27 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* Main Grid display area */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Toggle sub-tabs for Trends section */}
+              <div className="flex border-b border-slate-200 mt-2">
+                <button
+                  onClick={() => setTrendsSubTab('spotter')}
+                  className={`px-6 py-3 font-semibold text-xs uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-2 ${trendsSubTab === 'spotter' ? 'border-indigo-600 text-indigo-600 font-extrabold shadow-2xs' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  <TrendingUp className="w-4 h-4 text-indigo-500" />
+                  Predictive Trend Spotter (LLaMA-3 Analytics)
+                </button>
+                <button
+                  onClick={() => setTrendsSubTab('hunt')}
+                  className={`px-6 py-3 font-semibold text-xs uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-2 ${trendsSubTab === 'hunt' ? 'border-indigo-600 text-indigo-600 font-extrabold shadow-2xs' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  <Globe className="w-4 h-4 text-emerald-500" />
+                  Candidate Products Hunt & Vetting
+                </button>
+              </div>
+
+              {trendsSubTab === 'hunt' && (
+                /* Main Grid display area */
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-left">
                 
                 {/* Left Side: Candidates list */}
                 <div className="lg:col-span-2 space-y-3">
@@ -1961,7 +2086,7 @@ export default function AdminDashboard() {
                                 price: sug.price.toString(),
                                 category: sug.category,
                                 image_url: sug.image_url,
-                                affiliate_link: ''
+                                affiliate_link: sug.source_or_amazon_link || ''
                               });
                             }}
                             className={`p-4 rounded-xl border transition-all cursor-pointer bg-white ${selectedSuggestion?.id === sug.id ? 'border-indigo-600 ring-2 ring-indigo-50/50 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'}`}
@@ -2282,6 +2407,181 @@ export default function AdminDashboard() {
                 </div>
 
               </div>
+              )}
+
+              {trendsSubTab === 'spotter' && (
+                <div className="space-y-6 animate-fade-in text-left">
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-3xs">
+                      <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Predictive Engine</div>
+                      <div className="text-xl font-extrabold text-indigo-600 mt-1">Groq LLaMA-3</div>
+                      <div className="text-[10px] text-emerald-600 mt-1 font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Active & Synced Routine
+                      </div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-3xs">
+                      <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Daily Trend Volume</div>
+                      <div className="text-xl font-extrabold text-slate-800 mt-1">{predictiveTrends.length} Payloads</div>
+                      <div className="text-[10px] text-indigo-600 mt-1 font-bold">Target criteria: 30-40 daily</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-3xs">
+                      <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Market Context</div>
+                      <div className="text-xl font-extrabold text-slate-800 mt-1">United Kingdom</div>
+                      <div className="text-[10px] text-slate-500 mt-1 font-bold">Strict Google.co.uk patterns</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-3xs">
+                      <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Top Intent category</div>
+                      <div className="text-xl font-extrabold text-amber-600 mt-1">Seasonal / Commercial</div>
+                      <div className="text-[10px] text-slate-400 mt-1 font-bold">High conversion opportunity</div>
+                    </div>
+                  </div>
+
+                  {/* Filter and Trigger Bar */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="relative w-full sm:max-w-xs">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search LLaMA-3 trends..."
+                        value={predictiveSearch}
+                        onChange={(e) => setPredictiveSearch(e.target.value)}
+                        className="text-xs border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        setGeneratingPredictive(true);
+                        fetch('/api/admin/predictive-trends/generate', { method: 'POST' })
+                          .then(res => res.json())
+                          .then(data => {
+                            if (data.success) {
+                              setPredictiveTrends(data.trends || []);
+                              setSuccess(`Expert Predictive Agent refreshed UK trends successfully!`);
+                            } else {
+                              alert("Generation failed: " + (data.error || "Unknown error"));
+                            }
+                          })
+                          .catch(err => {
+                            console.error(err);
+                            alert("Failed to communicate with Groq LLaMA-3 Engine.");
+                          })
+                          .finally(() => setGeneratingPredictive(false));
+                      }}
+                      disabled={generatingPredictive}
+                      className="bg-[#0B192C] hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer w-full sm:w-auto justify-center"
+                    >
+                      <Sparkles className={`w-4 h-4 ${generatingPredictive ? 'animate-spin text-amber-400' : 'text-indigo-400'}`} />
+                      {generatingPredictive ? 'LLaMA-3 Spotting Trends...' : 'Force Regenerate Trends via LLaMA-3'}
+                    </button>
+                  </div>
+
+                  {/* Trends List & Cards */}
+                  {loadingPredictive ? (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center">
+                      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-2" />
+                      <p className="text-xs text-slate-400 font-bold">Synchronising Predictive Spotter analytics...</p>
+                    </div>
+                  ) : predictiveTrends.length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center">
+                      <Sparkles className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-xs text-slate-400 font-bold">No predictive trends loaded currently.</p>
+                      <button
+                        onClick={() => {
+                          setLoadingPredictive(true);
+                          fetch('/api/admin/predictive-trends')
+                            .then(res => res.json())
+                            .then(data => {
+                              if (Array.isArray(data)) setPredictiveTrends(data);
+                            })
+                            .finally(() => setLoadingPredictive(false));
+                        }}
+                        className="mt-2 text-indigo-600 font-bold text-xs hover:underline cursor-pointer"
+                      >
+                        Click to reload database results
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black tracking-wider text-slate-500">
+                              <th className="px-6 py-4">Trend ID</th>
+                              <th className="px-6 py-4">Topic / Trend Title</th>
+                              <th className="px-6 py-4">Category</th>
+                              <th className="px-6 py-4">Target Date Range</th>
+                              <th className="px-6 py-4 text-center">Volume Intent</th>
+                              <th className="px-6 py-4">SEO Tags / Keywords</th>
+                              <th className="px-6 py-4">Niche Product Ideas</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                            {(() => {
+                              const filtered = predictiveTrends.filter(t => 
+                                !predictiveSearch || 
+                                t.topic.toLowerCase().includes(predictiveSearch.toLowerCase()) || 
+                                t.category.toLowerCase().includes(predictiveSearch.toLowerCase()) || 
+                                t.trend_id.toLowerCase().includes(predictiveSearch.toLowerCase())
+                              );
+                              if (filtered.length === 0) {
+                                return (
+                                  <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-bold">
+                                      No matching trends found.
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                              return filtered.map((trend) => (
+                                <tr key={trend.id || trend.trend_id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-6 py-4 font-mono text-[10px] text-slate-500 whitespace-nowrap font-bold">{trend.trend_id}</td>
+                                  <td className="px-6 py-4 font-black text-slate-900 focus:outline-none">
+                                    <div className="flex items-center gap-1.5">
+                                      {trend.topic}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black bg-indigo-50 text-indigo-700 uppercase tracking-wider border border-indigo-100/50">
+                                      {trend.category}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-slate-500 whitespace-nowrap font-bold">{trend.target_date_range}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    <span style={{
+                                      backgroundColor: trend.search_volume_intent?.toLowerCase().includes('exponential') ? '#FEF2F2' : trend.search_volume_intent?.toLowerCase().includes('high') ? '#FFFBEB' : '#EFF6FF',
+                                      color: trend.search_volume_intent?.toLowerCase().includes('exponential') ? '#DC2626' : trend.search_volume_intent?.toLowerCase().includes('high') ? '#D97706' : '#2563EB',
+                                      borderColor: trend.search_volume_intent?.toLowerCase().includes('exponential') ? '#FEE2E2' : trend.search_volume_intent?.toLowerCase().includes('high') ? '#FEF3C7' : '#DBEAFE'
+                                    }} className="px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-wider">
+                                      {trend.search_volume_intent}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 max-w-xs">
+                                    <div className="flex flex-wrap gap-1">
+                                      {Array.isArray(trend.recommended_keywords) && trend.recommended_keywords.map((kw: string, i: number) => (
+                                        <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-mono font-bold">#{kw}</span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 max-w-xs">
+                                    <div className="flex flex-wrap gap-1">
+                                      {Array.isArray(trend.product_niche_ideas) && trend.product_niche_ideas.map((idea: string, i: number) => (
+                                        <span key={i} className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-100/50 px-2 py-0.5 rounded-lg font-bold">{idea}</span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ));
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
