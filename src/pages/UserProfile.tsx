@@ -8,6 +8,7 @@ export default function UserProfile() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
   const [marketingEmails, setMarketingEmails] = useState(true);
   const [showDeleteWarn, setShowDeleteWarn] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -23,6 +24,7 @@ export default function UserProfile() {
     if (userStr) {
       const user = JSON.parse(userStr);
       setUserEmail(user.email);
+      setUserName(user.name || user.email.split('@')[0]);
     }
   }, [navigate]);
 
@@ -107,9 +109,9 @@ export default function UserProfile() {
            {/* Profile Header - Hide on mobile */}
            <div className="hidden md:flex flex-col items-center mb-8 border-b border-slate-100 pb-6">
               <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-3xl font-black shadow-lg mb-4">
-                 {userEmail.charAt(0).toUpperCase()}
+                 {(userName || userEmail).charAt(0).toUpperCase()}
               </div>
-              <h2 className="font-bold text-slate-900 truncate w-full text-center">{userEmail.split('@')[0]}</h2>
+              <h2 className="font-bold text-slate-900 truncate w-full text-center">{userName || userEmail.split('@')[0]}</h2>
               <p className="text-xs text-slate-500 truncate w-full text-center mt-1">{userEmail}</p>
            </div>
            
