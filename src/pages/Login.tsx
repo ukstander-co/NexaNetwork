@@ -8,7 +8,7 @@ import Logo from '../components/Logo';
 import Footer from '../components/Footer';
 import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
 // @ts-ignore
-import ukstanderAffiliateBg from '../assets/images/ukstander_affiliate_bg_1781414243307.jpg';
+import ukstanderAffiliateBg from '../assets/images/bg_optimized.jpg';
 
 export default function Login() {
   const [email, setEmail] = useState(() => localStorage.getItem('remembered_email') || '');
