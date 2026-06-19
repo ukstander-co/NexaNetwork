@@ -7,8 +7,8 @@ import { toast } from 'react-hot-toast';
 import Logo from '../components/Logo';
 import Footer from '../components/Footer';
 import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
-// @ts-ignore
-import ukstanderAffiliateBg from '../assets/images/bg_optimized.jpg';
+// import ukstanderAffiliateBg from '../assets/images/bg_optimized.jpg';
+const ukstanderAffiliateBg = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2000&auto=format&fit=crop';
 
 export default function Login() {
   const [email, setEmail] = useState(() => localStorage.getItem('remembered_email') || '');
