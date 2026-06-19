@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Mail, ArrowRight, UserPlus, ShieldCheck, Sparkles, Star, TrendingUp, Award, ChevronRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { m as motion } from 'motion/react';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'react-hot-toast';
 import Logo from '../components/Logo';
