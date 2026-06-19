@@ -19,13 +19,6 @@ export default defineConfig(() => {
       rollupOptions: {
         maxParallelFileOps: 1,
         cache: false,
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              return 'vendor';
-            }
-          }
-        }
       }
     },
     server: {
