@@ -307,7 +307,7 @@ export default function ProductDetail() {
                 {/* Product Info Column */}
                 <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col">
                   <div className="flex items-center text-sm text-red-600 mb-3 font-bold tracking-wider uppercase">{product.category}</div>
-                  <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight mb-4">{product.name}</h1>
+                  <h1 className="text-xl lg:text-2xl font-semibold text-slate-800 leading-snug mb-4">{product.name}</h1>
                   
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex gap-0.5">
@@ -545,7 +545,7 @@ export default function ProductDetail() {
                {/* Essential Header Card */}
                <div className="bg-white rounded-3xl border border-slate-150 p-5 shadow-[0_4px_16px_rgba(0,0,0,0.01)] space-y-2.5" id="mobile-essential-info">
                  <span className="inline-block text-[10px] font-black uppercase text-red-700 tracking-wider bg-red-50/70 border border-red-100 px-2.5 py-1 rounded-full">{product.category}</span>
-                 <h1 className="text-lg font-extrabold font-sans text-slate-900 leading-snug tracking-tight">{product.name}</h1>
+                 <h1 className="text-base font-semibold font-sans text-slate-800 leading-snug tracking-normal">{product.name}</h1>
                  
                  <div className="flex items-center gap-1.5">
                    <div className="flex gap-0.5">
