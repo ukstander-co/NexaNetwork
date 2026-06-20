@@ -44,10 +44,24 @@ class AICompatibilityClient {
           const userMsg = params.messages.filter(m => m.role !== 'system').map(m => m.content).join("\n\n");
           const jsonMode = params.response_format?.type === 'json_object';
 
-          // 1. Try Gemini API first (highly reliable on the platform)
+          // 1. Try Groq API first (As requested by user)
+          const groqKey = process.env.GROQ_API_KEY || process.env.PRODUCT_GROQ_API_KEY || "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";
+          try {
+            console.log(`[AI Compatibility] ${this.clientName} route calling Groq API (${params.model || this.defaultModel})...`);
+            const groqClient = new Groq({ apiKey: groqKey });
+            return await groqClient.chat.completions.create({
+              messages: params.messages,
+              model: params.model || this.defaultModel,
+              ...(jsonMode ? { response_format: params.response_format } : {})
+            } as any);
+          } catch (groqError: any) {
+            console.warn(`[AI Compatibility] ${this.clientName} Groq API warning:`, groqError.message || groqError);
+          }
+
+          // 2. Fallback to Gemini if Groq fails
           if (process.env.GEMINI_API_KEY) {
             try {
-              console.log(`[AI Compatibility] ${this.clientName} route calling Gemini API (gemini-2.5-flash)...`);
+              console.log(`[AI Compatibility] ${this.clientName} falling back to Gemini API (gemini-2.5-flash)...`);
               const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: userMsg || sysMsg || "",
@@ -68,25 +82,12 @@ class AICompatibilityClient {
                 };
               }
             } catch (geminiError: any) {
-              console.warn(`[AI Compatibility] ${this.clientName} Gemini API warning:`, geminiError.message || geminiError);
+              console.error(`[AI Compatibility] ${this.clientName} Gemini fallback failure:`, geminiError.message || geminiError);
             }
           }
 
-          // 2. Fallback to Groq if possible
-          const groqKey = process.env.GROQ_API_KEY || process.env.PRODUCT_GROQ_API_KEY || "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";
-          try {
-            console.log(`[AI Compatibility] ${this.clientName} falling back to Groq SDK...`);
-            const fallbackGroq = new Groq({ apiKey: groqKey });
-            return await fallbackGroq.chat.completions.create({
-              messages: params.messages,
-              model: params.model || this.defaultModel,
-              ...(jsonMode ? { response_format: params.response_format } : {})
-            } as any);
-          } catch (groqError: any) {
-            console.error(`[AI Compatibility] ${this.clientName} Groq SDK failure:`, groqError.message || groqError);
-            
-            // IF BOTH FAIL, NEVER THROW AN ERROR! Dynamic local fallback mock generator matching specific keys:
-            console.warn(`[AI Compatibility] Both Gemini & Groq failed. Instantiating high-fidelity UK Stander Local Fallback Core...`);
+          // 3. IF BOTH FAIL, NEVER THROW AN ERROR! Dynamic local fallback mock generator:
+          console.warn(`[AI Compatibility] All AI providers failed. Instantiating high-fidelity UK Stander Local Fallback Core...`);
             let fallbackContent = "No response available.";
             
             if (jsonMode) {
@@ -148,7 +149,6 @@ class AICompatibilityClient {
                 }
               ]
             };
-          }
         }
       }
     };
@@ -1602,14 +1602,10 @@ function startServer() {
     
     let trendsList: any[] = [];
     
-    // 1. Try Gemini 2.5 Pro/Flash first (extremely reliable, fast, and quota-free)
+    // 1. Try unified AI Client (Groq-first, fallback to Gemini)
     try {
-      console.log("[Predictive trends] Calling Gemini API (gemini-2.5-flash) primary engine...");
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: "Generate exactly 35 premium, high-intent UK regional e-commerce commercial micro-trends for Google.co.uk and Amazon.co.uk patterns.",
-        config: {
-          systemInstruction: `You are the Expert UK Predictive Analytics & Trend Spotter Engine. Generate a JSON listing of exactly 35 trending events, holidays, topics, or micro-trends popular with UK consumers. Standardize on British English descriptors.
+      console.log("[Predictive trends] Calling unified AI Client (Groq-first)...");
+      const systemInstruction = `You are the Expert UK Predictive Analytics & Trend Spotter Engine. Generate a JSON listing of exactly 35 trending events, holidays, topics, or micro-trends popular with UK consumers. Standardize on British English descriptors.
           
           Object schema:
           {
@@ -1622,62 +1618,25 @@ function startServer() {
             "product_niche_ideas": ["idea1", "idea2"]
           }
           
-          Output MUST be strictly valid JSON and represent direct JSON array of exactly 35 objects. No wrapping, no markdown styling.`,
-          responseMimeType: "application/json",
-        }
-      });
+          Output MUST be strictly valid JSON and represent direct JSON array of exactly 35 objects. No wrapping, no markdown styling.`;
 
-      if (response && response.text) {
-        trendsList = JSON.parse(response.text.trim());
-        console.log(`[Predictive trends] Successfully generated ${trendsList.length} trends using Gemini API.`);
-      }
-    } catch (geminiErr: any) {
-      console.warn("[Predictive trends] Gemini API failed or throttled. Checking Groq...", geminiErr.message || geminiErr);
-      
-      // 2. Fall back to Groq
-      try {
-        const key = "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";
-        const client = new Groq({ apiKey: key });
-        const prompt = `You are the Expert UK Predictive Analytics & Trend Spotter Engine. Generate exactly 35 distinct UK-focused commercial trends.
-        Response schema layout: JSON Array of exactly 35 objects.
-        Object pattern:
-        {
-          "trend_id": "UK_2026_XXX",
-          "topic": "Glastonbury Festival Outfits",
-          "category": "Event / Bank Holiday",
-          "target_date_range": "Seasonal 2026",
-          "search_volume_intent": "Rising",
-          "recommended_keywords": ["short-tail", "long-tail"],
-          "product_niche_ideas": ["niche1", "niche2"]
-        }`;
+      const response = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: "Generate exactly 35 premium, high-intent UK regional e-commerce commercial micro-trends for Google.co.uk and Amazon.co.uk patterns." }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      }) as any;
 
-        const completion = await client.chat.completions.create({
-          messages: [
-            { role: 'system', content: "You are a professional UK Predictive Analytics Engine. Your output must be strictly valid JSON and only the array of 35 trend objects." },
-            { role: 'user', content: prompt }
-          ],
-          model: 'llama-3.1-8b-instant',
-          temperature: 0.7,
-        });
-        
-        const responseText = completion.choices[0]?.message?.content || "";
-        let jsonText = responseText.trim();
-        if (jsonText.startsWith("```json")) {
-          jsonText = jsonText.substring(7);
-        }
-        if (jsonText.startsWith("```")) {
-          jsonText = jsonText.substring(3);
-        }
-        if (jsonText.endsWith("```")) {
-          jsonText = jsonText.substring(0, jsonText.length - 3);
-        }
-        jsonText = jsonText.trim();
-        
-        trendsList = JSON.parse(jsonText);
-        console.log(`[Predictive trends] Successfully generated ${trendsList.length} trends using Groq.`);
-      } catch (err: any) {
-        console.error("[Predictive trends] Groq LLaMA-3 also failed or rate-limited. Activating local pre-seeded UK trend repository:", err.message || err);
+      const aiText = response.choices[0]?.message?.content;
+      if (aiText) {
+        const cleanedText = aiText.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+        trendsList = JSON.parse(cleanedText);
+        console.log(`[Predictive trends] Successfully generated ${trendsList.length} trends using unified AI Client.`);
       }
+    } catch (err: any) {
+      console.warn("[Predictive trends] AI Trend Generation failed. Fallback triggered.", err.message || err);
     }
     
     if (!Array.isArray(trendsList) || trendsList.length === 0) {
@@ -1816,16 +1775,17 @@ function startServer() {
 
         Do not include any greeting, explanation or formatting other than a raw JSON block. Output must be strictly valid JSON.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: fallbackPrompt,
-          config: {
-            responseMimeType: 'application/json'
-          }
-        });
+        const response = await groq.chat.completions.create({
+          messages: [
+            { role: "user", content: fallbackPrompt }
+          ],
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: 'json_object' }
+        }) as any;
 
-        const text = response.text || '[]';
-        let generatedItems = JSON.parse(text);
+        const text = response.choices[0]?.message?.content || '[]';
+        const cleanedText = text.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+        let generatedItems = JSON.parse(cleanedText);
         if (!Array.isArray(generatedItems)) {
           if (generatedItems.products && Array.isArray(generatedItems.products)) {
             generatedItems = generatedItems.products;
@@ -2249,38 +2209,49 @@ Return valid JSON ONLY in this format:
   "seoDescription": "..." 
 }`;
 
-        const blogCompletion = await productGroq.chat.completions.create({
-          messages: [{ role: "system", content: blogPrompt }],
-          model: "llama-3.3-70b-versatile",
-          response_format: { type: "json_object" }
-        });
-
-        const blogResponse = blogCompletion.choices[0]?.message?.content;
-        if (blogResponse) {
-          const blogData = JSON.parse(blogResponse);
-          const slug = aiData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.floor(Math.random() * 1000);
-          
-          await db.execute({
-            sql: `INSERT INTO blogs 
-                  (title, content, slug, product_id, banner_image, slider_images, affiliate_link, tags, seo_title, seo_description) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [
-              blogData.blogTitle,
-              blogData.blogContent,
-              slug,
-              newProduct.id,
-              imageUrl || "",
-              imagesStr,
-              affiliateLink,
-              blogData.tags,
-              blogData.seoTitle,
-              blogData.seoDescription
-            ]
+        try {
+          const blogCompletion = await productGroq.chat.completions.create({
+            messages: [{ role: "system", content: blogPrompt }],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
           });
-          console.log("[Blog AI] Blog generated and stored for slug:", slug);
+
+          let blogResponse = blogCompletion.choices[0]?.message?.content;
+          if (blogResponse) {
+            // Clean up possible markdown code blocks if the AI outputs them instead of raw JSON
+            blogResponse = blogResponse.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+            
+            const blogData = JSON.parse(blogResponse);
+            const slug = aiData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.floor(Math.random() * 1000);
+            
+            // Note: fallback to result.lastInsertRowid if newProduct.id somehow is undefined
+            const insertedProductId = newProduct && typeof newProduct.id !== 'undefined' ? newProduct.id : Number(result.lastInsertRowid);
+            
+            await db.execute({
+              sql: `INSERT INTO blogs 
+                    (title, content, slug, product_id, banner_image, slider_images, affiliate_link, tags, seo_title, seo_description) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [
+                blogData.blogTitle,
+                blogData.blogContent,
+                slug,
+                insertedProductId || null,
+                imageUrl || "",
+                imagesStr,
+                affiliateLink,
+                blogData.tags,
+                blogData.seoTitle,
+                blogData.seoDescription
+              ]
+            });
+            console.log("[Blog AI] Blog generated and stored for slug:", slug);
+          }
+        } catch (blogErr: any) {
+          console.error("[Blog AI] Failed specifically during blog generation:", blogErr.message || blogErr);
+          // Keep continuing because the product was successfully saved.
         }
 
-        res.json({ message: "Product and Blog generated and stored successfully", product: newProduct });
+        res.json({ message: "Product generated and stored successfully (Blog generation attempted as well)", product: newProduct });
       } else {
         res.status(500).json({ error: "No AI response" });
       }
@@ -3271,8 +3242,9 @@ Return valid JSON ONLY (no comments) in this format:
             response_format: { type: "json_object" }
           });
 
-          const blogResponse = blogCompletion.choices[0]?.message?.content;
+          let blogResponse = blogCompletion.choices[0]?.message?.content;
           if (blogResponse) {
+            blogResponse = blogResponse.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
             const blogData = JSON.parse(blogResponse);
             const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.floor(Math.random() * 1000);
             
