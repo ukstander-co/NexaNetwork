@@ -1109,97 +1109,41 @@ export default function UserDashboard() {
         <div className={`flex-1 min-h-[500px] ${isHomeMode ? "w-full" : ""}`}>
           {isHomeMode ? (
             <div className="flex flex-col gap-10 md:gap-14 pb-16 bg-[#FDFDFD] relative">
-              {/* 3D Auto Sliding Hero Poster */}
-              <div className="relative w-full h-[320px] sm:h-[450px] md:h-[580px] -mt-4 mb-4 [perspective:1000px] overflow-hidden bg-slate-950 border-b border-white/5 shadow-2xl">
-                {heroSlides.map((slide, index) => {
-                  const isCurrent = index === currentSlide;
-                  const isPrev =
-                    index ===
-                    (currentSlide - 1 + heroSlides.length) % heroSlides.length;
-                  const isNext =
-                    index === (currentSlide + 1) % heroSlides.length;
-
-                  // Determine 3D transforms
-                  let transformStyle = "";
-                  let zIndex = 0;
-                  let opacity = 0;
-
-                  if (isCurrent) {
-                    transformStyle = "translateX(0) scale(1) rotateY(0deg)";
-                    zIndex = 40;
-                    opacity = 1;
-                  } else if (isPrev) {
-                    transformStyle =
-                      "translateX(-40%) scale(0.85) rotateY(20deg)";
-                    zIndex = 20;
-                    opacity = 0.4;
-                  } else if (isNext) {
-                    transformStyle =
-                      "translateX(40%) scale(0.85) rotateY(-20deg)";
-                    zIndex = 20;
-                    opacity = 0.4;
-                  }
-
-                  return (
-                    <div
-                      key={index}
-                      className="absolute inset-0 transition-all duration-700 ease-out origin-center"
-                      style={{
-                        transform: transformStyle,
-                        zIndex,
-                        opacity,
-                        visibility: opacity > 0 ? "visible" : "hidden",
-                      }}
-                    >
-                      {/* Deep overlay mask */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/60 to-slate-900/10 z-10 pointer-events-none"></div>
-                      <img
-                        src={slide.image}
-                        alt={slide.title.replace("<br/>", " ")}
-                        className="w-full h-full object-cover opacity-75 object-center scale-105"
-                      />
-                      <div className="absolute top-0 left-0 bottom-0 w-full md:w-[55%] p-6 sm:p-12 md:p-16 flex flex-col justify-center z-[30] pointer-events-auto">
-                        <span className="text-red-500 text-xs sm:text-xs font-extrabold tracking-widest uppercase mb-2 bg-red-950/60 w-fit px-3.5 py-1 rounded-full border border-red-500/20 backdrop-blur-md shadow-sm">
-                          {slide.tag}
-                        </span>
-                        <h1
-                          className="text-2xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.08] mb-3 sm:mb-4 drop-shadow-xl"
-                          dangerouslySetInnerHTML={{ __html: slide.title }}
-                        ></h1>
-                        <p className="hidden sm:block text-slate-300 text-sm md:text-base mb-6 md:mb-8 max-w-sm drop-shadow-md font-medium leading-relaxed">
-                          {slide.desc}
-                        </p>
-                        <button
+              {/* Etsy-like Storefront Header */}
+              <div className="w-full flex justify-center py-6 sm:py-8 md:py-10 bg-[#FDFDFD]">
+                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8">
+                  <h1 className="text-2xl sm:text-3xl font-serif text-slate-900 text-center mb-8 sm:mb-10 tracking-tight">
+                    {userEmail && userEmail !== 'Guest' ? `Welcome back, ${userEmail.split('@')[0]}!` : "Find things you'll love. Support premium quality."}
+                  </h1>
+                  
+                  {/* Circle Category Bubbles */}
+                  <div className="flex overflow-x-auto gap-4 sm:gap-6 justify-start md:justify-center pb-4 scrollbar-hide py-2 snap-x">
+                    {dynamicCategories.filter((c) => c !== "All Categories").slice(0, 6).map((category, idx) => {
+                      const catImage = products.find(p => p.category === category)?.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=200";
+                      
+                      return (
+                        <div 
+                          key={category}
                           onClick={() => {
-                            setSearchInput(slide.query);
-                            executeSearch();
+                            handleCategorySelect(category);
                           }}
-                          className="bg-red-600 text-white font-extrabold px-6 py-2.5 sm:px-9 sm:py-4 rounded-full text-xs sm:text-xs tracking-wider uppercase w-fit hover:bg-red-700 transition-all shadow-[0_4px_25px_rgba(220,38,38,0.3)] hover:shadow-[0_8px_35px_rgba(220,38,38,0.5)] hover:scale-105 active:scale-95 transform duration-300 select-none cursor-pointer border border-red-500/30"
+                          className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0 snap-center"
                         >
-                          {slide.btn}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Slide Navigation Dots */}
-                <div className="absolute bottom-16 sm:bottom-28 left-0 right-0 flex justify-center gap-2 z-40">
-                  {heroSlides.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentSlide(idx)}
-                      className={`h-2.5 rounded-full transition-all duration-350 ${idx === currentSlide ? "w-10 bg-red-600 shadow-[0_0_12px_rgba(220,38,38,0.8)]" : "w-2.5 bg-white/40 hover:bg-white/70"}`}
-                    />
-                  ))}
+                          <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-slate-200 group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.15)] transition-all bg-slate-50 relative group-hover:-translate-y-1">
+                            <img src={catImage} alt={category} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500" />
+                          </div>
+                          <span className="text-sm font-semibold text-slate-800 text-center max-w-[128px] truncate mt-1">
+                            {category}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-
-                {/* Subtle bottom fade */}
-                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-100 via-slate-100/30 to-transparent z-30 pointer-events-none"></div>
               </div>
 
-              {/* Main Content Area with Amazon-like overlap */}
-              <div className="max-w-[1600px] mx-auto w-full px-3 sm:px-4 -mt-10 sm:-mt-16 md:-mt-20 z-40 relative flex flex-col gap-6 md:gap-8">
+              {/* Main Content Area */}
+              <div className="max-w-[1400px] mx-auto w-full px-3 sm:px-6 md:px-8 relative flex flex-col gap-6 md:gap-10">
                 {/* Premium Bento Grid layout for categories/highlights */}
                 <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 pb-4 sm:pb-0 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                   {[
