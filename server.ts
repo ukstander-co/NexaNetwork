@@ -2207,9 +2207,9 @@ Instructions:
 1. Title: Create an engaging, keyword-rich title optimized for UK Google search. Include relevant UK-specific terms if applicable.
 2. Description: Write a persuasive, benefit-driven product description using perfect UK English (e.g., 'colour', 'organise', 'jewellery', 'value for money'). Focus on solving the customer's problem. Use bullet points for key features if helpful.
 3. Category: Determine the best broad e-commerce category (e.g., "Home & Kitchen", "Health & Beauty", "Tech Gadgets", "Men's Fashion").
-4. Tags: Generate highly relevant SEO hashtags and comma-separated tags reflecting UK search intent.
+4. Tags: Generate a diverse, rich variety of at least 10 to 15 different SEO search tags/keywords separated by commas. These must represent diverse search intent dimensions (e.g. general category, specific product type, brand, problem solved, target demographic, material, and UK-local terms). Do NOT output just two generic tags. Absolutely no hashtag symbols (#). Just clean, lowercase comma-separated phrases and words.
 
-Return valid JSON ONLY in this format: { "title": "...", "description": "...", "category": "...", "tags": "#tag1, #tag2" }.
+Return valid JSON ONLY in this format: { "title": "...", "description": "...", "category": "...", "tags": "tag-variety-1, tag-variety-2, tag-variety-3, tag-variety-4, tag-variety-5, tag-variety-6, tag-variety-7, tag-variety-8, tag-variety-9, tag-variety-10, tag-variety-11, tag-variety-12" }.
 
 Raw Context:
 ${rawContext}
@@ -2221,14 +2221,15 @@ ${rawContext}
         response_format: { type: "json_object" }
       });
 
-      const responseContent = chatCompletion.choices[0]?.message?.content;
+        const responseContent = chatCompletion.choices[0]?.message?.content;
       if (responseContent) {
         const aiData = JSON.parse(responseContent);
         const imagesStr = Array.isArray(additionalImages) ? JSON.stringify(additionalImages) : JSON.stringify([]);
+        const cleanTags = (aiData.tags || "").replace(/#/g, "");
         
         const result = await db.execute({
           sql: "INSERT INTO products (affiliate_link, image_url, price, category, ai_title, ai_description, ai_tags, additional_images) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
-          args: [affiliateLink, imageUrl || "", price, aiData.category || "General", aiData.title, aiData.description, aiData.tags, imagesStr]
+          args: [affiliateLink, imageUrl || "", price, aiData.category || "General", aiData.title, aiData.description, cleanTags, imagesStr]
         });
 
         const newProduct = result.rows[0];
@@ -2510,7 +2511,17 @@ Return valid JSON ONLY in this format:
         image: p.image_url || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400",
         affiliateLink: p.affiliate_link,
         ai_tags: p.ai_tags,
-        additionalImages: p.additional_images ? JSON.parse(p.additional_images as string) : [],
+        additionalImages: (() => {
+          if (!p.additional_images) return [];
+          const str = (p.additional_images as string).trim();
+          if (str.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(str);
+              if (Array.isArray(parsed)) return parsed;
+            } catch (e) {}
+          }
+          return str.split(',').map((img: any) => String(img).trim()).filter(Boolean);
+        })(),
         reviews: reviewsList
       };
 
@@ -3853,7 +3864,8 @@ Return valid JSON ONLY (no comments) in this format:
         category: p.category,
         ai_title: p.ai_title,
         ai_description: p.ai_description,
-        ai_tags: p.ai_tags
+        ai_tags: p.ai_tags,
+        additional_images: p.additional_images || ''
       })));
     } catch (e) {
       res.status(500).json({ error: "Failed to fetch products for admin" });
@@ -3863,16 +3875,38 @@ Return valid JSON ONLY (no comments) in this format:
   // Admin POST to edit products
   app.post('/api/admin/products/:id', async (req, res) => {
     const { id } = req.params;
-    const { affiliate_link, image_url, price, category, ai_title, ai_description, ai_tags } = req.body;
+    const { affiliate_link, image_url, price, category, ai_title, ai_description, ai_tags, additional_images } = req.body;
     if (!affiliate_link || !price || !category || !ai_title) {
       res.status(400).json({ error: "affiliate_link, price, category, and ai_title are required." });
       return;
     }
     try {
       const cleanId = id.startsWith('db-') ? Number(id.replace('db-', '')) : Number(id);
+      
+      let finalAdditionalImages = "[]";
+      if (additional_images) {
+        if (Array.isArray(additional_images)) {
+          finalAdditionalImages = JSON.stringify(additional_images);
+        } else if (typeof additional_images === "string") {
+          const trimmed = additional_images.trim();
+          if (trimmed.startsWith("[")) {
+            try {
+              JSON.parse(trimmed);
+              finalAdditionalImages = trimmed;
+            } catch (e) {
+              const array = trimmed.split(',').map((img: string) => img.trim()).filter(Boolean);
+              finalAdditionalImages = JSON.stringify(array);
+            }
+          } else {
+            const array = trimmed.split(',').map((img: string) => img.trim()).filter(Boolean);
+            finalAdditionalImages = JSON.stringify(array);
+          }
+        }
+      }
+
       await db.execute({
-        sql: "UPDATE products SET affiliate_link = ?, image_url = ?, price = ?, category = ?, ai_title = ?, ai_description = ?, ai_tags = ? WHERE id = ?",
-        args: [affiliate_link, image_url || "", parseFloat(price) || 0, category, ai_title, ai_description || "", ai_tags || "", cleanId]
+        sql: "UPDATE products SET affiliate_link = ?, image_url = ?, price = ?, category = ?, ai_title = ?, ai_description = ?, ai_tags = ?, additional_images = ? WHERE id = ?",
+        args: [affiliate_link, image_url || "", parseFloat(price) || 0, category, ai_title, ai_description || "", ai_tags || "", finalAdditionalImages, cleanId]
       });
       invalidateServerCache('products');
       res.json({ success: true, message: "Product updated successfully." });

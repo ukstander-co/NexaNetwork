@@ -31,6 +31,7 @@ import Logo from "../components/Logo";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useTranslation } from "../hooks/useTranslation";
 import { apiClient } from "../utils/apiClient";
+import { getProductSeoUrl } from "../utils/seo";
 
 const MOCK_PRODUCTS = [
   {
@@ -259,6 +260,12 @@ export default function UserDashboard() {
       })
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    setSearch(q);
+    setSearchInput(q);
+  }, [searchParams]);
 
   const headerLinks = useMemo(() => {
     if (globalSettings?.header_links) {
@@ -529,9 +536,17 @@ export default function UserDashboard() {
                 "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400",
               affiliateLink: p.affiliate_link,
               ai_tags: p.ai_tags,
-              additionalImages: p.additional_images
-                ? JSON.parse(p.additional_images)
-                : [],
+              additionalImages: (() => {
+                if (!p.additional_images) return [];
+                const str = p.additional_images.trim();
+                if (str.startsWith('[')) {
+                  try {
+                    const parsed = JSON.parse(str);
+                    if (Array.isArray(parsed)) return parsed;
+                  } catch (e) {}
+                }
+                return str.split(',').map((img: any) => String(img).trim()).filter(Boolean);
+              })(),
             }));
             const combined = [
               ...mapped,
@@ -720,7 +735,7 @@ export default function UserDashboard() {
         }),
       }).catch(console.error);
     }
-    navigate(`/product/${product.id.toString().replace("db-", "")}`, {
+    navigate(getProductSeoUrl(product.id, product.name || product.ai_title), {
       state: { product },
     });
   };
@@ -1333,7 +1348,7 @@ export default function UserDashboard() {
                         )}
                         <img
                           src={product.image}
-                          alt={product.name}
+                          alt={`${product.name} - Premium ${product.category} Curation`}
                           className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
                         />
                       </div>

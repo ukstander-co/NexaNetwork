@@ -5,6 +5,7 @@ import { m as motion } from 'motion/react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { apiClient } from '../utils/apiClient';
+import { getProductSeoUrl } from '../utils/seo';
 
 export default function BlogList() {
   const navigate = useNavigate();
@@ -294,11 +295,11 @@ export default function BlogList() {
                                  onClick={(e) => {
                                    e.stopPropagation();
                                    console.log("[BlogList] Buy Now clicked. Blog title:", blog.title);
-                                   let targetId = blog.product_id;
+                                   let targetId = blog.product_id; let match: any = null;
                                    
                                    if (!targetId && allProducts.length > 0 && blog?.title) {
                                      const blogTitleLower = blog.title.toLowerCase();
-                                     let match = allProducts.find(p => 
+                                     match = allProducts.find(p => 
                                        (p?.ai_title && (
                                          blogTitleLower.includes(p.ai_title.toLowerCase()) || 
                                          p.ai_title.toLowerCase().includes(blogTitleLower)
@@ -326,8 +327,8 @@ export default function BlogList() {
                                    }
 
                                    if (targetId) {
-                                     const cleanId = targetId.toString().replace('db-', '');
-                                     navigate(`/product/db-${cleanId}`);
+                                     const finalTitle = match?.ai_title || match?.name || blog.title;
+                                     navigate(getProductSeoUrl(targetId, finalTitle));
                                    } else if (blog.affiliate_link) {
                                      window.open(blog.affiliate_link, '_blank', 'noopener,noreferrer');
                                    } else {
@@ -388,12 +389,12 @@ export default function BlogList() {
                              <button 
                                onClick={(e) => {
                                  e.stopPropagation();
-                                 console.log("[BlogList] Quick Buy clicked. Blog title:", blog.title);
+                                 console.log("[BlogList] Quick Buy clicked. Blog title:", blog.title); let match: any = null;
                                  let targetId = blog.product_id;
                                  
                                  if (!targetId && allProducts.length > 0 && blog?.title) {
                                    const blogTitleLower = blog.title.toLowerCase();
-                                   let match = allProducts.find(p => 
+                                   match = allProducts.find(p => 
                                      (p?.ai_title && (
                                        blogTitleLower.includes(p.ai_title.toLowerCase()) || 
                                        p.ai_title.toLowerCase().includes(blogTitleLower)
@@ -421,8 +422,8 @@ export default function BlogList() {
                                  }
 
                                  if (targetId) {
-                                   const cleanId = targetId.toString().replace('db-', '');
-                                   navigate(`/product/db-${cleanId}`);
+                                   const finalTitle = match?.ai_title || match?.name || blog.title;
+                                   navigate(getProductSeoUrl(targetId, finalTitle));
                                  } else if (blog.affiliate_link) {
                                    window.open(blog.affiliate_link, '_blank', 'noopener,noreferrer');
                                  } else {

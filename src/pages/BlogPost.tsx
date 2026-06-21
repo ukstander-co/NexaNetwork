@@ -21,6 +21,7 @@ import { m as motion } from 'motion/react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { apiClient } from '../utils/apiClient';
+import { getProductSeoUrl } from '../utils/seo';
 
 export default function BlogPost() {
   const { slug } = useParams();
@@ -39,6 +40,7 @@ export default function BlogPost() {
     } catch { return 'shopper.uk@gmail.com'; }
   };
   const userEmail = getUserEmail();
+  let match: any = null;
 
   const getWishlist = () => {
     try {
@@ -281,7 +283,7 @@ export default function BlogPost() {
                     let targetId = blog.product_id;
                     if (!targetId && allProducts.length > 0 && blog?.title) {
                       const blogTitleLower = blog.title.toLowerCase();
-                      let match = allProducts.find(p => 
+                      match = allProducts.find(p => 
                         p?.ai_title && (
                           blogTitleLower.includes(p.ai_title.toLowerCase()) || 
                           p.ai_title.toLowerCase().includes(blogTitleLower)
@@ -300,8 +302,8 @@ export default function BlogPost() {
                       }
                     }
                     if (targetId) {
-                      const cleanId = targetId.toString().replace('db-', '');
-                      navigate(`/product/db-${cleanId}`);
+                      const finalTitle = match?.ai_title || blog.title;
+                      navigate(getProductSeoUrl(targetId, finalTitle));
                     } else if (blog.affiliate_link) {
                       window.open(blog.affiliate_link, '_blank', 'noopener,noreferrer');
                     } else {
@@ -487,7 +489,7 @@ export default function BlogPost() {
 
                   <button 
                     onClick={() => {
-                      console.log("[BuyNow] Clicked. Blog title:", blog.title);
+                      console.log("[BuyNow] Clicked. Blog title:", blog.title); let match: any = null;
                       let targetId = blog.product_id;
                       
                       // Enhanced Matching Logic
@@ -495,7 +497,7 @@ export default function BlogPost() {
                         const blogTitleLower = blog.title.toLowerCase();
                         
                         // 1. Exact or include match
-                        let match = allProducts.find(p => 
+                        match = allProducts.find(p => 
                           p?.ai_title && (
                             blogTitleLower.includes(p.ai_title.toLowerCase()) || 
                             p.ai_title.toLowerCase().includes(blogTitleLower)
@@ -519,10 +521,9 @@ export default function BlogPost() {
                       }
 
                       if (targetId) {
-                        // Ensure ID format is correct for URL (stripping any existing db- prefix and re-adding)
-                        const cleanId = targetId.toString().replace('db-', '');
-                        console.log("[BuyNow] Navigating to product page:", cleanId);
-                        navigate(`/product/db-${cleanId}`);
+                        const finalTitle = match?.ai_title || blog.title;
+                        console.log("[BuyNow] Navigating to product page:", targetId, finalTitle);
+                        navigate(getProductSeoUrl(targetId, finalTitle));
                       } else if (blog.affiliate_link) {
                         console.log("[BuyNow] Opening affiliate link:", blog.affiliate_link);
                         window.open(blog.affiliate_link, '_blank', 'noopener,noreferrer');
