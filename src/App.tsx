@@ -16,6 +16,7 @@ import { LazyMotion, domAnimation, AnimatePresence } from "motion/react";
 import SplashScreen from "./components/SplashScreen";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
+import AdminNotepad from "./components/AdminNotepad";
 
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -92,6 +93,7 @@ export default function App() {
           <main className="w-full min-h-screen flex flex-col">
           <Toaster position="top-center" reverseOrder={false} />
           <SeoManager />
+          <AdminNotepad />
           <Suspense
             fallback={
               <div className="flex items-center justify-center min-h-screen">

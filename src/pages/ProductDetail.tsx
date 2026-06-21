@@ -160,6 +160,7 @@ export default function ProductDetail() {
                 image: found.image_url || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400",
                 affiliateLink: found.affiliate_link,
                 ai_tags: found.ai_tags,
+                ai_schema: found.ai_schema,
                 additionalImages: (() => {
                   if (!found.additional_images) return [];
                   const str = found.additional_images.trim();
@@ -242,6 +243,15 @@ export default function ProductDetail() {
         document.head.appendChild(metaDesc);
       }
       metaDesc.setAttribute('content', product.description || '');
+
+      let scriptLdJson = document.querySelector('script[type="application/ld+json"][id="faq-schema"]');
+      if (!scriptLdJson) {
+        scriptLdJson = document.createElement('script');
+        scriptLdJson.setAttribute('type', 'application/ld+json');
+        scriptLdJson.setAttribute('id', 'faq-schema');
+        document.head.appendChild(scriptLdJson);
+      }
+      scriptLdJson.textContent = product.ai_schema || '';
     }
   }, [product, id, cleanId, navigate]);
 

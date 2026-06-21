@@ -277,6 +277,9 @@ async function initializeDatabase() {
       await db.execute("ALTER TABLE products ADD COLUMN rating REAL DEFAULT 4.7");
     } catch(e) {}
     try {
+      await db.execute("ALTER TABLE products ADD COLUMN ai_schema TEXT");
+    } catch(e) {}
+    try {
       await db.execute("ALTER TABLE products ADD COLUMN reviews_count INTEGER DEFAULT 150");
     } catch(e) {}
     try {
@@ -2589,6 +2592,7 @@ Return valid JSON ONLY in this format:
         image: p.image_url || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400",
         affiliateLink: p.affiliate_link,
         ai_tags: p.ai_tags,
+        ai_schema: p.ai_schema,
         additionalImages: (() => {
           if (!p.additional_images) return [];
           const str = (p.additional_images as string).trim();
@@ -3622,6 +3626,39 @@ Return valid JSON ONLY (no comments) in this format:
     }
   });
 
+  // GET admin notepad content
+  app.get('/api/admin/notepad', async (req, res) => {
+    try {
+      const result = await db.execute({
+        sql: "SELECT value FROM global_settings WHERE key = 'admin_notepad'",
+        args: []
+      });
+      if (result.rows && result.rows.length > 0) {
+        res.json({ content: result.rows[0].value || "" });
+      } else {
+        res.json({ content: "" });
+      }
+    } catch (e) {
+      console.error("Failed to fetch admin notepad content", e);
+      res.status(500).json({ error: "Failed to fetch admin notepad content" });
+    }
+  });
+
+  // POST admin notepad content
+  app.post('/api/admin/notepad', async (req, res) => {
+    const { content } = req.body;
+    try {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES ('admin_notepad', ?)",
+        args: [content || ""]
+      });
+      res.json({ success: true, message: "Notepad saved successfully." });
+    } catch (e) {
+      console.error("Failed to update admin notepad content", e);
+      res.status(500).json({ error: "Failed to update admin notepad content" });
+    }
+  });
+
   // GET global settings for header/footer
   app.get('/api/global-settings', async (req, res) => {
     try {
@@ -3953,7 +3990,7 @@ Return valid JSON ONLY (no comments) in this format:
   // Admin POST to edit products
   app.post('/api/admin/products/:id', async (req, res) => {
     const { id } = req.params;
-    const { affiliate_link, image_url, price, category, ai_title, ai_description, ai_tags, additional_images } = req.body;
+    const { affiliate_link, image_url, price, category, ai_title, ai_description, ai_tags, additional_images, ai_schema } = req.body;
     if (!affiliate_link || !price || !category || !ai_title) {
       res.status(400).json({ error: "affiliate_link, price, category, and ai_title are required." });
       return;
@@ -3983,8 +4020,8 @@ Return valid JSON ONLY (no comments) in this format:
       }
 
       await db.execute({
-        sql: "UPDATE products SET affiliate_link = ?, image_url = ?, price = ?, category = ?, ai_title = ?, ai_description = ?, ai_tags = ?, additional_images = ? WHERE id = ?",
-        args: [affiliate_link, image_url || "", parseFloat(price) || 0, category, ai_title, ai_description || "", ai_tags || "", finalAdditionalImages, cleanId]
+        sql: "UPDATE products SET affiliate_link = ?, image_url = ?, price = ?, category = ?, ai_title = ?, ai_description = ?, ai_tags = ?, additional_images = ?, ai_schema = ? WHERE id = ?",
+        args: [affiliate_link, image_url || "", parseFloat(price) || 0, category, ai_title, ai_description || "", ai_tags || "", finalAdditionalImages, ai_schema || "", cleanId]
       });
       invalidateServerCache('products');
       res.json({ success: true, message: "Product updated successfully." });
@@ -4224,7 +4261,7 @@ Return valid JSON ONLY (no comments) in this format:
       try {
         const imageRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 5000 });
         imageBuffer = Buffer.from(imageRes.data, 'binary');
-        mimeType = imageRes.headers['content-type'] || 'image/jpeg';
+        mimeType = String(imageRes.headers['content-type'] || 'image/jpeg');
       } catch (err) {
         return res.status(400).json({ error: "Could not fetch image from URL" });
       }
@@ -4261,7 +4298,7 @@ Provide a strictly JSON response matching this schema:
         }
       });
       
-      const responseText = response.text();
+      const responseText = response.text || "";
       let parsed = { compliant: true, score: 95, feedback: "Image fully aligns with product." };
       try {
         parsed = JSON.parse(responseText);
@@ -4375,7 +4412,23 @@ You must ONLY output valid JSON. Do NOT output mathematical expressions like "12
 
       const reportContent = completion.choices[0]?.message?.content;
       if (reportContent) {
-        const parsed = JSON.parse(reportContent);
+        // Sanitize any math expression (like '100 / 208 * 100') before parsing JSON
+        let sanitizedContent = reportContent.trim();
+        sanitizedContent = sanitizedContent.replace(/:\s*([0-9.]+(?:\s*[\+\-\*\/]\s*[0-9.]+)+)/g, (match, expression) => {
+          try {
+            if (/^[0-9\.\s\+\-\*\/\(\)]+$/.test(expression)) {
+              const evaluated = new Function(`return (${expression})`)();
+              if (typeof evaluated === 'number' && !isNaN(evaluated) && isFinite(evaluated)) {
+                return `: ${parseFloat(evaluated.toFixed(2))}`;
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to safely evaluate math expression in JSON:", expression, e);
+          }
+          return match;
+        });
+
+        const parsed = JSON.parse(sanitizedContent);
         // Fix: Ensure performanceNarrative is a string to avoid React "Objects are not valid as a React child" error
         if (parsed.performanceNarrative && typeof parsed.performanceNarrative === 'object') {
           parsed.performanceNarrative = JSON.stringify(parsed.performanceNarrative, null, 2);
@@ -4561,6 +4614,119 @@ You must ONLY output valid JSON. Do NOT output mathematical expressions like "12
     } catch (error: any) {
       console.warn("Google Trends tag generation failed:", error.message);
       res.json({ success: false, tags: [] });
+    }
+  });
+
+  app.post('/api/admin/seo-buy-intent-optimizer', async (req, res) => {
+    try {
+      const { title, description, category } = req.body;
+      const prompt = `You are a strict UK E-commerce Conversion Copywriter. Optimize this product title for high buyer intent (e.g. adding 'UK', 'Free Delivery', 'Best', 'Review', action verbs).
+      
+      Respond directly in strictly valid JSON format:
+      {
+        "optimized_titles": ["title 1", "title 2"],
+        "buyer_intent_score": 85,
+        "reasoning": "Explanation"
+      }
+      
+      Title: ${title}
+      Desc: ${description}
+      Cat: ${category}`;
+      
+      const completion = await productGroq.chat.completions.create({
+        messages: [{ role: "system", content: prompt }],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+      res.json(JSON.parse(completion.choices[0]?.message?.content || '{}'));
+    } catch(e:any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/admin/seo-competitor-gap-analyzer', async (req, res) => {
+    try {
+      const { title, description, category } = req.body;
+      const prompt = `You are a UK SEO Strategist. Analyze this product copy for content gaps compared to standard top-ranking UK competitors for similar products.
+      
+      Respond directly in strictly valid JSON format:
+      {
+        "missing_keywords": ["keyword1", "keyword2"],
+        "content_gaps": ["gap 1 string", "gap 2 string"],
+        "recommended_additions": "string"
+      }
+      
+      Title: ${title}
+      Desc: ${description}
+      Cat: ${category}`;
+      
+      const completion = await productGroq.chat.completions.create({
+        messages: [{ role: "system", content: prompt }],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+      res.json(JSON.parse(completion.choices[0]?.message?.content || '{}'));
+    } catch(e:any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/admin/seo-faq-schema-generator', async (req, res) => {
+    try {
+      const { title, description } = req.body;
+      const prompt = `You are an SEO structured data expert. Generate 2 to 4 realistic Frequently Asked Questions (FAQs) and their answers for this product, optimized for Google UK Rich Snippets.
+      
+      CRITICAL INSTRUCTIONS:
+      Do NOT output raw HTML or generic messages. You MUST output strictly valid JSON matching this schema exactly:
+      {
+        "faq_schema_script": "The full exact JSON string for the application/ld+json script payload",
+        "questions_generated": 3
+      }
+      
+      Title: ${title}
+      Desc: ${description}`;
+      
+      const completion = await productGroq.chat.completions.create({
+        messages: [{ role: "system", content: prompt }],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+      res.json(JSON.parse(completion.choices[0]?.message?.content || '{}'));
+    } catch(e:any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/admin/seo-lsi-keyword-inserter', async (req, res) => {
+    try {
+      const { title, description, category } = req.body;
+      if (!title || !description) {
+        return res.status(400).json({ error: "Title and description required." });
+      }
+
+      const lsiPrompt = `You are a Local SEO Latent Semantic Indexing (LSI) Expert for the UK market.
+Analyze the following product details. Identify highly relevant LSI keywords to boost UK search intent (e.g., local buyer terms, semantic synonyms, feature context).
+Then, weave these keywords naturally into a revised, highly converting, SEO-friendly description.
+Keep the existing tone but make it richer for search engines.
+
+CRITICAL INSTRUCTIONS:
+- You must output valid JSON matching exactly this schema:
+{
+  "lsi_keywords": ["keyword1", "keyword2", "keyword3"],
+  "improved_description": "Your newly rewritten comprehensive description here."
+}
+
+Product Title: ${title}
+Product Category: ${category || 'Uncategorized'}
+Current Description: ${description}`;
+
+      const chatCompletion = await productGroq.chat.completions.create({
+        messages: [{ role: "system", content: lsiPrompt }],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+
+      const responseContent = chatCompletion.choices[0]?.message?.content;
+      if (!responseContent) throw new Error("Empty AI response");
+
+      res.json(JSON.parse(responseContent));
+    } catch (e: any) {
+      console.error("LSI Gen Error", e);
+      res.status(500).json({ error: e.message || "Failed to generate LSI keywords and description" });
     }
   });
 

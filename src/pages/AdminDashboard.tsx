@@ -312,6 +312,7 @@ export default function AdminDashboard() {
     category: '',
     ai_description: '',
     ai_tags: '',
+    ai_schema: '',
     affiliate_link: '',
     image_url: '',
     additional_images: ''
@@ -320,6 +321,11 @@ export default function AdminDashboard() {
   const [productSeoInsights, setProductSeoInsights] = useState<any | null>(null);
   const [loadingSeoInsights, setLoadingSeoInsights] = useState(false);
   const [imageScanData, setImageScanData] = useState<{ loading: boolean, compliant: boolean, score: number, feedback: string }>({ loading: false, compliant: false, score: 0, feedback: '' });
+  const [generatingLSI, setGeneratingLSI] = useState(false);
+  const [generatingTitleOpt, setGeneratingTitleOpt] = useState(false);
+  const [generatingGap, setGeneratingGap] = useState(false);
+  const [generatingFAQ, setGeneratingFAQ] = useState(false);
+  const [gapAnalyzerData, setGapAnalyzerData] = useState<any>(null);
   const [suggestedTags, setSuggestedTags] = useState<{shortTail: string[], longTail: string[]}>({ shortTail: [], longTail: [] });
   
   const [liveSeoMetrics, setLiveSeoMetrics] = useState({ score: 0, titleCheck: false, descCheck: false, tagsCheck: false, imageCheck: false, affiliateCheck: false });
@@ -805,6 +811,91 @@ export default function AdminDashboard() {
       .catch(console.error);
   };
 
+  const generateLSIKeywords = async () => {
+    if (!productForm.ai_title || !productForm.ai_description) return;
+    try {
+      setGeneratingLSI(true);
+      const res = await fetch('/api/admin/seo-lsi-keyword-inserter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: productForm.ai_title,
+          description: productForm.ai_description,
+          category: productForm.category
+        })
+      });
+      const data = await res.json();
+      if (data.improved_description) {
+         setProductForm(prev => ({
+           ...prev,
+           ai_description: data.improved_description,
+           ai_tags: prev.ai_tags ? prev.ai_tags + ', ' + data.lsi_keywords.join(', ') : data.lsi_keywords.join(', ')
+         }));
+         setProductSaveSuccess('LSI Keywords integrated securely!');
+         setTimeout(() => setProductSaveSuccess(''), 4000);
+      }
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setGeneratingLSI(false);
+    }
+  };
+
+  const generateTitleOpt = async () => {
+    if (!productForm.ai_title) return;
+    try {
+      setGeneratingTitleOpt(true);
+      const res = await fetch('/api/admin/seo-buy-intent-optimizer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: productForm.ai_title, description: productForm.ai_description, category: productForm.category })
+      });
+      const data = await res.json();
+      if (data.optimized_titles && data.optimized_titles.length > 0) {
+        setProductForm(prev => ({ ...prev, ai_title: data.optimized_titles[0] }));
+        setProductSaveSuccess(`Optimized! Score bumped to ${data.buyer_intent_score}`);
+        setTimeout(() => setProductSaveSuccess(''), 4000);
+      }
+    } catch(err) { console.error(err); } 
+    finally { setGeneratingTitleOpt(false); }
+  };
+
+  const generateGapAnalysis = async () => {
+    if (!productForm.ai_description || !productForm.ai_title) return;
+    try {
+      setGeneratingGap(true);
+      const res = await fetch('/api/admin/seo-competitor-gap-analyzer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: productForm.ai_title, description: productForm.ai_description, category: productForm.category })
+      });
+      const data = await res.json();
+      setGapAnalyzerData(data);
+    } catch(err) { console.error(err); } 
+    finally { setGeneratingGap(false); }
+  };
+
+  const generateFAQSchema = async () => {
+    if (!productForm.ai_description || !productForm.ai_title) return;
+    try {
+      setGeneratingFAQ(true);
+      const res = await fetch('/api/admin/seo-faq-schema-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: productForm.ai_title, description: productForm.ai_description })
+      });
+      const data = await res.json();
+      if (data.faq_schema_script) {
+        setProductForm(prev => ({ ...prev, ai_schema: data.faq_schema_script }));
+        setProductSaveSuccess(`Generated ${data.questions_generated} FAQs for rich snippets!`);
+        setTimeout(() => setProductSaveSuccess(''), 4000);
+      }
+    } catch(err) { console.error(err); } 
+    finally { setGeneratingFAQ(false); }
+  };
+
   // Products Manager Actions
   const handleEditProductClick = (prod: any) => {
     setEditingProduct(prod);
@@ -829,6 +920,7 @@ export default function AdminDashboard() {
       category: prod.category || '',
       ai_description: prod.ai_description || '',
       ai_tags: prod.ai_tags || '',
+      ai_schema: prod.ai_schema || '',
       affiliate_link: prod.affiliate_link || '',
       image_url: prod.image_url || '',
       additional_images: additionalImagesStr
@@ -1234,6 +1326,12 @@ export default function AdminDashboard() {
                             ) : null}
                           </label>
                           <input required type="text" value={productForm.ai_title} onChange={e => setProductForm({...productForm, ai_title: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow" />
+                          <div className="flex justify-end mt-1.5">
+                            <button type="button" onClick={generateTitleOpt} disabled={generatingTitleOpt || !productForm.ai_title} className="text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 border border-slate-200">
+                              {generatingTitleOpt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-indigo-500" />}
+                              Buying Intent Title Optimizer
+                            </button>
+                          </div>
                         </div>
                         <div>
                           <label className="text-[10px] font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">Category Code</label>
@@ -1466,6 +1564,41 @@ export default function AdminDashboard() {
                             ) : null}
                           </label>
                           <textarea rows={3} value={productForm.ai_description} onChange={e => setProductForm({...productForm, ai_description: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          <div className="flex flex-wrap justify-end gap-2 mt-2">
+                            <button type="button" onClick={generateGapAnalysis} disabled={generatingGap || !productForm.ai_description || !productForm.ai_title} className="text-[10px] bg-sky-50 hover:bg-sky-100 text-sky-700 px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 border border-sky-100">
+                              {generatingGap ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-sky-500" />}
+                              Competitor Content Gap Analyzer
+                            </button>
+                            <button type="button" onClick={generateFAQSchema} disabled={generatingFAQ || !productForm.ai_description || !productForm.ai_title} className="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 border border-purple-100">
+                              {generatingFAQ ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-purple-500" />}
+                              AI FAQ Schema (JSON-LD)
+                            </button>
+                            <button type="button" onClick={generateLSIKeywords} disabled={generatingLSI || !productForm.ai_description || !productForm.ai_title} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 border border-indigo-100">
+                              {generatingLSI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-500" />}
+                              Semantic LSI Keyword Inserter
+                            </button>
+                          </div>
+                          
+                          {gapAnalyzerData && (
+                            <div className="bg-amber-50/50 border border-amber-200 mt-3 p-3 rounded-xl">
+                              <h4 className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-600"/>Content Gap Analysis</h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <span className="block text-[10px] font-bold text-slate-500 mb-1">Missing Competitor Keywords:</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {(gapAnalyzerData.missing_keywords || []).map((k:string, i:number) => <span key={i} className="inline-block bg-white text-xs border border-amber-200 px-1.5 py-0.5 rounded text-amber-700">{k}</span>)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] font-bold text-slate-500 mb-1">Structural Content Gaps:</span>
+                                  <ul className="text-[10px] text-slate-700 list-disc pl-3">
+                                    {(gapAnalyzerData.content_gaps || []).map((g:string, i:number) => <li key={i}>{g}</li>)}
+                                  </ul>
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-amber-800 mt-2 p-1.5 bg-amber-100/50 rounded inline-block w-full"><strong>Recommendation:</strong> {gapAnalyzerData.recommended_additions}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="md:col-span-2">
                           <label className="text-[10px] font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
@@ -1529,6 +1662,14 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           )}
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="text-[10px] font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                            AI FAQ Schema (JSON-LD) Targeting Rich Snippets
+                            {productForm.ai_schema.length > 50 && <span className="text-emerald-500 text-[10px] flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Valid Schema Payload</span>}
+                          </label>
+                          <textarea rows={2} placeholder="<script type='application/ld+json'>...</script>" value={productForm.ai_schema} onChange={e => setProductForm({...productForm, ai_schema: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-indigo-300 font-mono leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                         </div>
 
                           <div className="md:col-span-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mt-1 text-[9px] font-medium text-slate-500">
