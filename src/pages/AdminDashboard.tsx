@@ -1409,9 +1409,9 @@ export default function AdminDashboard() {
                             {(productForm.additional_images === '' ? [''] : productForm.additional_images.split(',')).map((url, idx, arr) => (
                               <div key={idx} className="flex gap-2 items-center">
                                 {url.trim().match(/\.(mp4|webm|ogg)$/i) ? (
-                                  <video src={url.trim()} autoPlay muted loop className="w-10 h-10 object-cover rounded border border-slate-200" />
+                                  <video src={url.trim()} autoPlay muted loop className="w-10 h-10 object-cover rounded border border-slate-200 shrink-0" />
                                 ) : (
-                                  url.trim().startsWith('http') ? <img src={url.trim()} className="w-10 h-10 object-cover rounded border border-slate-200" /> : <div className="w-10 h-10 bg-slate-100 rounded border border-slate-200" />
+                                  url.trim().startsWith('http') ? <><img src={url.trim()} className="w-10 h-10 object-cover rounded border border-slate-200 shrink-0" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); e.currentTarget.nextElementSibling?.classList.add('flex'); }} /><div className="w-10 h-10 bg-slate-100 rounded border border-slate-200 hidden shrink-0 items-center justify-center"><ExternalLink className="w-4 h-4 text-slate-400" /></div></> : <div className="w-10 h-10 bg-slate-100 rounded border border-slate-200 shrink-0 flex items-center justify-center"><ExternalLink className="w-4 h-4 text-slate-400" /></div>
                                 )}
                                 <input
                                   type="text"

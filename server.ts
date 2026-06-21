@@ -4336,7 +4336,8 @@ Our system statistics are:
 
 Synthesise daily activity trends, category-level engagement statistics, and conversion ratios for the past 7 days.
 Return a valid JSON report containing formatted charts statistics. Your structure MUST follow this JSON schema EXACTLY so we can bind it to Recharts components (AreaChart, BarChart, LineChart) directly.
-CRITICAL: Do NOT output mathematical expressions like "12/20*100" in the values. Only output final calculated literal numbers (integers or primitive floats, e.g. 60 or 2.4). All "rate", "views", "clicks", "wishlist", and "value" fields MUST be strictly valid numbers, NO math expressions.
+CRITICAL MANDATORY INSTRUCTIONS: 
+You must ONLY output valid JSON. Do NOT output mathematical expressions like "12/20*100" or fractions in the values. Only output final calculated literal numbers (integers or primitive floats, e.g. 60 or 2.4). All "rate", "views", "clicks", "wishlist", and "value" fields MUST be strictly primitive JSON numbers. NEVER output mathematical operators (+, -, *, /) inside numbers!
 
 {
   "performanceNarrative": "A clean 3-bullet insight reporting layout summarizing product conversion highlights and actions.",

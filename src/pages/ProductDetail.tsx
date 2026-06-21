@@ -443,20 +443,30 @@ export default function ProductDetail() {
                            <img src={product.image} className="w-full h-full object-contain mix-blend-multiply" alt={`${product.name} - Primary Angle`} />
                          )}
                       </button>
-                      {product.additionalImages && Array.isArray(product.additionalImages) && product.additionalImages.map((img: string, i: number) => (
+                      {product.additionalImages && Array.isArray(product.additionalImages) && product.additionalImages.map((img: string, i: number) => {
+                        const isMedia = img.match(/\.(jpeg|jpg|gif|png|webp|mp4|webm|ogg)$/i);
+                        return (
                         <button 
                           key={i}
-                          onClick={() => setActiveImage(img)}
+                          onClick={() => {
+                            if (!isMedia && img.startsWith('http')) {
+                              window.open(img, '_blank');
+                            } else {
+                              setActiveImage(img);
+                            }
+                          }}
                           className={`w-20 h-20 rounded-xl border-2 p-2 cursor-pointer transition-all shrink-0 bg-slate-50 flex items-center justify-center ${activeImage === img ? 'border-red-600 shadow-md' : 'border-transparent hover:border-slate-300'}`}
                           id={`desktop-thumb-${i}`}
                         >
                            {img.match(/\.(mp4|webm|ogg)$/i) ? (
                              <video src={img} className="w-full h-full object-cover rounded" />
-                           ) : (
+                           ) : isMedia ? (
                              <img src={img} className="w-full h-full object-contain mix-blend-multiply" alt={`${product.name} - Alternate Angle ${i + 1}`} />
+                           ) : (
+                             <ExternalLink className="w-6 h-6 text-slate-400" />
                            )}
                         </button>
-                      ))}
+                      )})}
                     </div>
                   )}
                 </div>
@@ -671,16 +681,30 @@ export default function ProductDetail() {
                      >
                         <img src={product.image} className="max-h-full object-contain mix-blend-multiply" alt={`${product.name} - Alternate View Thumbnail`} />
                      </button>
-                     {product.additionalImages && Array.isArray(product.additionalImages) && product.additionalImages.map((img: string, i: number) => (
+                     {product.additionalImages && Array.isArray(product.additionalImages) && product.additionalImages.map((img: string, i: number) => {
+                       const isMedia = img.match(/\.(jpeg|jpg|gif|png|webp|mp4|webm|ogg)$/i);
+                       return (
                        <button 
                          key={i}
-                         onClick={() => setActiveImage(img)}
+                         onClick={() => {
+                           if (!isMedia && img.startsWith('http')) {
+                             window.open(img, '_blank');
+                           } else {
+                             setActiveImage(img);
+                           }
+                         }}
                          className={`w-14 h-14 rounded-xl border p-1 bg-white flex items-center justify-center shrink-0 transition-transform ${activeImage === img ? 'border-red-600 ring-2 ring-red-105 scale-105 shadow-sm' : 'border-slate-200'}`}
                          id={`mobile-thumb-${i}`}
                        >
-                          <img src={img} className="max-h-full object-contain mix-blend-multiply" alt={`${product.name} - View Thumbnail ${i + 1}`} />
+                          {img.match(/\.(mp4|webm|ogg)$/i) ? (
+                            <video src={img} className="max-h-full object-cover rounded" />
+                          ) : isMedia ? (
+                            <img src={img} className="max-h-full object-contain mix-blend-multiply" alt={`${product.name} - View Thumbnail ${i + 1}`} />
+                          ) : (
+                            <ExternalLink className="w-5 h-5 text-slate-400" />
+                          )}
                        </button>
-                     ))}
+                     )})}
                    </div>
                  )}
                </div>
