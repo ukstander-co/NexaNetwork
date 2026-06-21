@@ -187,6 +187,9 @@ async function initializeDatabase() {
       try {
         await db.execute("ALTER TABLE users ADD COLUMN marketing_emails INTEGER DEFAULT 1");
       } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE ai_trend_suggestions ADD COLUMN additional_images TEXT");
+      } catch (e) {}
 
       // Robustly ensure newly added tables are created on pre-existing databases to prevent SQL errors
       try {
@@ -198,6 +201,7 @@ async function initializeDatabase() {
             price REAL,
             category TEXT,
             image_url TEXT,
+            additional_images TEXT,
             trend_reason TEXT,
             source_or_amazon_link TEXT,
             status TEXT DEFAULT 'pending',
@@ -660,6 +664,7 @@ async function initializeDatabase() {
         price REAL,
         category TEXT,
         image_url TEXT,
+        additional_images TEXT,
         trend_reason TEXT,
         source_or_amazon_link TEXT,
         status TEXT DEFAULT 'pending',
@@ -1984,7 +1989,10 @@ function startServer() {
       console.log(`[Rainforest AI] Discovered ${items.length} live products under '${search_term}' in Amazon UK.`);
 
       let imported = 0;
-      for (const item of items) {
+      // Truncate to top 5 to avoid timeouts and rate limits when fetching detailed media
+      const topItems = items.slice(0, 5);
+
+      for (const item of topItems) {
         if (!item.title || !item.asin) continue;
 
         const ratingVal = item.rating || 4.5;
@@ -2000,16 +2008,56 @@ function startServer() {
           originalLink = item.asin ? `https://www.amazon.co.uk/dp/${item.asin}` : `https://www.amazon.co.uk/s?k=${encodeURIComponent(item.title)}`;
         }
 
+        // Fetch detailed media from Rainforest API
+        let mainCover = item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=500";
+        let additionalImagesStr = "";
+
+        if (RAINFOREST_KEY && RAINFOREST_KEY.trim() !== "mock") {
+          try {
+            console.log(`[Rainforest AI] Fetching media details for ASIN: ${item.asin}`);
+            const prodRes = await axios.get('https://api.rainforestapi.com/request', {
+              params: {
+                api_key: RAINFOREST_KEY,
+                type: 'product',
+                amazon_domain: 'amazon.co.uk',
+                asin: item.asin
+              },
+              timeout: 10000
+            });
+            const productData = prodRes.data.product;
+            if (productData) {
+              if (productData.main_image && productData.main_image.link) {
+                mainCover = productData.main_image.link;
+              }
+              const mediaArr: string[] = [];
+              if (productData.images && Array.isArray(productData.images)) {
+                productData.images.forEach((im: any) => {
+                  if (im.link && im.link !== mainCover) mediaArr.push(im.link);
+                });
+              }
+              if (productData.videos && Array.isArray(productData.videos)) {
+                productData.videos.forEach((vid: any) => {
+                  if (vid.link) mediaArr.push(vid.link);
+                });
+              }
+              additionalImagesStr = mediaArr.join(',');
+            }
+          } catch (mErr: any) {
+            console.warn(`[Rainforest AI] Failed getting detailed media for ${item.asin}`, mErr.message);
+          }
+        }
+
         await db.execute({
           sql: `INSERT INTO ai_trend_suggestions 
-                (suggested_title, suggested_description, price, category, image_url, trend_reason, source_or_amazon_link) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                (suggested_title, suggested_description, price, category, image_url, additional_images, trend_reason, source_or_amazon_link) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             item.title,
             `Top Rated UK Best Seller: Discover this highly popular and deeply reviewed item in our ${search_term} collection. Quality rated ${ratingVal} stars by ${totalRatings} verified shoppers. Strongly recommended in the UK market.`,
             finalPrice,
             search_term,
-            item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=500",
+            mainCover,
+            additionalImagesStr,
             `Live Rainforest Market Hunt: Strong SEO indexing & exceptional user review metrics for '${search_term}'. Discovered on ${new Date().toLocaleDateString()}.`,
             originalLink
           ]
@@ -2052,14 +2100,15 @@ function startServer() {
 
         await db.execute({
           sql: `INSERT INTO ai_trend_suggestions 
-                (suggested_title, suggested_description, price, category, image_url, trend_reason, source_or_amazon_link) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                (suggested_title, suggested_description, price, category, image_url, additional_images, trend_reason, source_or_amazon_link) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             item.title || "Untitled Product",
             item.description || "No description provided.",
             parseFloat(item.price) || 0,
             item.category || "General",
             item.image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400",
+            "",
             item.trend_reason || "Discovered by external tracking node.",
             importedLink
           ]
@@ -4525,7 +4574,7 @@ CRITICAL: Do NOT output mathematical expressions like "12/20*100" in the values.
   });
 
   app.post('/api/admin/trend-suggestions/approve', async (req, res) => {
-    const { id, title, description, price, category, image_url, affiliate_link } = req.body;
+    const { id, title, description, price, category, image_url, additional_images, affiliate_link } = req.body;
     if (!id || !title || !price || !category || !affiliate_link) {
       res.status(400).json({ error: "Missing required fields for approval mapping (ID, title, price, category, affiliate link)" });
       return;
@@ -4535,14 +4584,15 @@ CRITICAL: Do NOT output mathematical expressions like "12/20*100" in the values.
       // 1. Insert as concrete live entry in products catalog
       await db.execute({
         sql: `INSERT INTO products 
-              (ai_title, ai_description, price, category, image_url, affiliate_link, ai_tags, rating, reviews_count, cart_count, views_count) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              (ai_title, ai_description, price, category, image_url, additional_images, affiliate_link, ai_tags, rating, reviews_count, cart_count, views_count) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           title,
           description || "Discovered by AI trends analysis.",
           parseFloat(price) || 29.99,
           category,
           image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400",
+          additional_images || "",
           affiliate_link,
           `#uktrends, #${category.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
           4.8, // starting rating

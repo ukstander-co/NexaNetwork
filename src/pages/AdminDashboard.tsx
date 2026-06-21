@@ -85,6 +85,7 @@ export default function AdminDashboard() {
     price: '',
     category: '',
     image_url: '',
+    additional_images: '',
     affiliate_link: ''
   });
   
@@ -2673,6 +2674,7 @@ export default function AdminDashboard() {
                                 price: sug.price.toString(),
                                 category: sug.category,
                                 image_url: sug.image_url,
+                                additional_images: sug.additional_images || '',
                                 affiliate_link: sug.source_or_amazon_link || ''
                               });
                             }}
@@ -2900,6 +2902,7 @@ export default function AdminDashboard() {
                                 price: approveForm.price,
                                 category: approveForm.category,
                                 image_url: approveForm.image_url,
+                                additional_images: approveForm.additional_images,
                                 affiliate_link: approveForm.affiliate_link
                               })
                             })
