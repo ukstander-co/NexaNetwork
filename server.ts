@@ -3374,6 +3374,76 @@ CORE INSTRUCTIONS:
     }
   });
 
+  app.get('/feed/google-shopping.xml', async (req, res) => {
+    try {
+      const products = await getCachedEnrichedProducts();
+      
+      const itemsXml = products.map((product: any) => {
+        const productUrl = `https://ukstander.shop/product/${product.id}`;
+        const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        const description = product.ai_description || `Premium quality ${product.category || 'curation'} item handpicked for UKStander shoppers. Great value and top customer reviews.`;
+        
+        // Extract brand name if possible, or default to UKStander
+        let brand = 'UKStander';
+        const titleLower = (product.ai_title || '').toLowerCase();
+        if (titleLower.includes('dyson')) brand = 'Dyson';
+        else if (titleLower.includes('sony')) brand = 'Sony';
+        else if (titleLower.includes('ninja')) brand = 'Ninja';
+        else if (titleLower.includes('apple')) brand = 'Apple';
+        else if (titleLower.includes('nespresso')) brand = 'Nespresso';
+        else if (titleLower.includes('samsung')) brand = 'Samsung';
+        else if (titleLower.includes('cerave')) brand = 'CeraVe';
+        else if (titleLower.includes('logitech')) brand = 'Logitech';
+
+        // Additional Image Links
+        let additionalImagesXml = '';
+        if (product.additional_images) {
+          try {
+            const parsed = JSON.parse(product.additional_images);
+            if (Array.isArray(parsed)) {
+              additionalImagesXml = parsed.slice(0, 5).map((imgUrl: string) => 
+                `      <g:additional_image_link>${escapeXml(imgUrl)}</g:additional_image_link>`
+              ).join('\n');
+            }
+          } catch(err) {}
+        }
+        
+        return `
+    <item>
+      <g:id>db-prod-${product.id}</g:id>
+      <g:title>${escapeXml(product.ai_title || 'Premium UK Product')}</g:title>
+      <g:description>${escapeXml(description)}</g:description>
+      <g:link>${escapeXml(productUrl)}</g:link>
+      <g:image_link>${escapeXml(imageUrl)}</g:image_link>
+      ${additionalImagesXml}
+      <g:condition>new</g:condition>
+      <g:availability>in_stock</g:availability>
+      <g:price>${parseFloat(product.price || 0).toFixed(2)} GBP</g:price>
+      <g:brand>${escapeXml(brand)}</g:brand>
+      <g:google_product_category>${escapeXml(product.category || 'Shopping')}</g:google_product_category>
+    </item>`;
+      }).join('\n');
+      
+      const gXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>UKStander - Google Shopping XML Feed</title>
+    <link>https://ukstander.shop/</link>
+    <description>Dynamic UK CSS Comparison Shopping Service Google Shopping Feed</description>
+    <language>en-gb</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    ${itemsXml}
+  </channel>
+</rss>`;
+
+      res.set('Content-Type', 'application/xml; charset=utf-8');
+      res.send(gXml);
+    } catch (e: any) {
+      console.error("[Google Shopping XML Feed] Failed generation:", e);
+      res.status(500).send(`<error>Failed to generate Google Shopping feed: ${escapeXml(e.message)}</error>`);
+    }
+  });
+
   // --- Blog System Endpoints ---
   app.get('/api/blogs', async (req, res) => {
     try {

@@ -859,7 +859,7 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#F8FAFC] relative overflow-hidden">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#FAF9F6] relative overflow-hidden">
       {/* Ambient 3D Glowing Elements & Radial Technical Grid */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
         {/* Deep Soft Glowing 3D Orbs */}
@@ -1053,18 +1053,24 @@ export default function UserDashboard() {
         {/* Product Catalog */}
         <div className={`flex-1 min-h-[500px] ${isHomeMode ? "w-full" : ""}`}>
           {isHomeMode ? (
-            <div className="flex flex-col gap-10 md:gap-14 pb-16 bg-[#FDFDFD] relative">
-              {/* Etsy-like Storefront Header */}
-              <div className="w-full flex justify-center py-6 sm:py-8 md:py-10 bg-[#FDFDFD]">
-                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8">
-                  <h1 className="text-2xl sm:text-3xl font-serif text-slate-900 text-center mb-8 sm:mb-10 tracking-tight">
+            <div className="flex flex-col gap-12 md:gap-16 pb-20 relative bg-transparent">
+              {/* Curated Editorial Welcome Header */}
+              <div className="w-full flex justify-center py-10 sm:py-12 md:py-14">
+                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8 text-center">
+                  <span className="text-xs font-bold tracking-widest text-[#9A7F56] uppercase mb-3.5 block">
+                    Hand-Selected Elite Curation
+                  </span>
+                  <h1 className="text-3xl sm:text-4.5xl font-serif font-black text-slate-900 mb-6 tracking-tight leading-tight max-w-4xl mx-auto">
                     {userName && userName !== 'Guest' 
-                      ? `Welcome back, ${userName}! ${getDailyGreeting().split('!')[1] || getDailyGreeting().split(':')[1] || ""}` 
+                      ? `Welcome back, ${userName}! Discover hand-crafted essentials selected for you.` 
                       : getDailyGreeting()}
                   </h1>
+                  <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
+                    Explore high-end departments, premium UK shopping finds, and editor's favorite picks curated daily by our advanced machine-learning personalization engine.
+                  </p>
                   
-                  {/* Circle Category Bubbles */}
-                  <div className="flex overflow-x-auto gap-4 sm:gap-6 justify-start md:justify-center pb-4 scrollbar-hide py-2 snap-x">
+                  {/* High-End Circular Department Selector */}
+                  <div className="flex overflow-x-auto gap-6 sm:gap-8 justify-start md:justify-center pb-6 scrollbar-hide py-3 snap-x">
                     {dynamicCategories.filter((c) => c !== "All Categories").slice(0, 6).map((category, idx) => {
                       const catImage = products.find(p => p.category === category)?.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=200";
                       
@@ -1074,12 +1080,14 @@ export default function UserDashboard() {
                           onClick={() => {
                             handleCategorySelect(category);
                           }}
-                          className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0 snap-center"
+                          className="flex flex-col items-center gap-3.5 cursor-pointer group flex-shrink-0 snap-center select-none"
                         >
-                          <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-slate-200 group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.15)] transition-all bg-slate-50 relative group-hover:-translate-y-1">
-                            <img src={catImage} alt={category} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500" />
+                          <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden shadow-sm border border-[#E9E5DE] bg-white relative group-hover:shadow-md group-hover:border-amber-600/40 group-hover:-translate-y-1.5 transition-all duration-300">
+                            {/* Accent Glow Circle behind image */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-amber-100/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <img src={catImage} alt={category} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 mix-blend-multiply" />
                           </div>
-                          <span className="text-sm font-semibold text-slate-800 text-center max-w-[128px] truncate mt-1">
+                          <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-[#9A7F56] text-center max-w-[128px] truncate mt-1 tracking-tight transition-colors">
                             {category}
                           </span>
                         </div>
@@ -1090,13 +1098,14 @@ export default function UserDashboard() {
               </div>
 
               {/* Main Content Area */}
-              <div className="max-w-[1400px] mx-auto w-full px-3 sm:px-6 md:px-8 relative flex flex-col gap-6 md:gap-10">
+              <div className="max-w-[1400px] mx-auto w-full px-3 sm:px-6 md:px-8 relative flex flex-col gap-8 md:gap-12">
                 {/* Premium Bento Grid layout for categories/highlights */}
-                <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 pb-4 sm:pb-0 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 pb-4 sm:pb-0 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                   {[
                     {
                       title: "Top Ranked",
                       subtitle: "See highly rated deals",
+                      bgColor: "bg-amber-50 text-amber-800 border-amber-200/50",
                       items: [...products]
                         .sort((a, b) => b.rating - a.rating)
                         .slice(0, 2),
@@ -1108,6 +1117,7 @@ export default function UserDashboard() {
                     {
                       title: "Most Popular",
                       subtitle: "Explore trending items",
+                      bgColor: "bg-blue-50 text-blue-800 border-blue-200/50",
                       items: [...products]
                         .sort((a, b) => b.reviews - a.reviews)
                         .slice(0, 2),
@@ -1119,6 +1129,7 @@ export default function UserDashboard() {
                     {
                       title: "Daily Max Visitors",
                       subtitle: "See what others view",
+                      bgColor: "bg-emerald-50 text-emerald-800 border-emerald-200/50",
                       items: [...products]
                         .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
                         .slice(0, 2),
@@ -1130,6 +1141,7 @@ export default function UserDashboard() {
                     {
                       title: "Deals Under £50",
                       subtitle: "Shop budget finds",
+                      bgColor: "bg-rose-50 text-rose-800 border-rose-200/50",
                       items: products.filter((p) => p.price <= 50).slice(0, 2),
                       action: () => {
                         setMaxPrice(50);
@@ -1139,33 +1151,38 @@ export default function UserDashboard() {
                   ].map((card, idx) => (
                     <div
                       key={idx}
-                      className="min-w-[85vw] sm:min-w-0 bg-white p-5 sm:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col snap-center h-full group/card"
+                      className="min-w-[85vw] sm:min-w-0 bg-white/95 backdrop-blur-sm p-6 rounded-3xl shadow-xs border border-[#E9E5DE]/80 hover:shadow-md hover:border-[#9A7F56]/30 -translate-y-0.5 hover:-translate-y-1.5 transition-all duration-300 cursor-pointer flex flex-col snap-center h-full group/card"
                       onClick={card.action}
                     >
-                      <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-4 tracking-tight border-b border-slate-100 pb-2.5 flex items-center justify-between">
-                        {card.title}
-                      </h3>
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#FAF9F6]">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                          {card.title}
+                        </h3>
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${card.bgColor} border`}>
+                          Featured
+                        </span>
+                      </div>
+                      
                       {card.items.length >= 2 ? (
-                        <div className="grid grid-cols-2 gap-3 flex-1 mb-4">
+                        <div className="grid grid-cols-2 gap-4 flex-1 mb-5">
                           {card.items.slice(0, 2).map((item, i) => (
                             <div
                               key={i}
-                              className="bg-slate-50/70 hover:bg-rose-50/45 hover:shadow-xs border border-slate-100/60 hover:border-blue-400/45 active:scale-[0.97] transition-all duration-300 rounded-2xl p-3 flex flex-col items-center justify-between group/item cursor-pointer"
+                              className="bg-[#FAF9F6]/80 hover:bg-white hover:shadow-xs border border-transparent hover:border-[#EBE8E2] active:scale-[0.98] transition-all duration-300 rounded-2xl p-3.5 flex flex-col items-center justify-between group/item cursor-pointer"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleProductView(item);
                               }}
                               title={item.name}
                             >
-                              <div className="h-14 sm:h-20 w-full flex items-center justify-center mb-1.5 relative">
-                                <div className="absolute inset-0 bg-white/40 rounded-lg -z-10"></div>
+                              <div className="h-16 sm:h-20 w-full flex items-center justify-center mb-2.5 relative">
                                 <img
                                   src={item.image}
-                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover/item:scale-110 transition-transform duration-300"
+                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover/item:scale-105 transition-transform duration-300"
                                   alt={item.name}
                                 />
                               </div>
-                              <span className="text-[10px] text-slate-500 group-hover/item:text-slate-950 font-medium truncate w-full text-center tracking-tight">
+                              <span className="text-[11px] text-slate-500 group-hover/item:text-slate-900 font-medium truncate w-full text-center tracking-tight">
                                 {item.name}
                               </span>
                             </div>
@@ -1176,7 +1193,8 @@ export default function UserDashboard() {
                           Finding live curate deals...
                         </div>
                       )}
-                      <p className="text-red-650 group-hover/card:text-red-700 text-xs mt-auto font-black flex items-center gap-1.5 transition-colors pt-2 uppercase tracking-wider">
+                      
+                      <p className="text-[#9A7F56] group-hover/card:text-amber-900 text-xs mt-auto font-bold flex items-center gap-1.5 transition-colors pt-2 uppercase tracking-wider">
                         {card.subtitle}{" "}
                         <ArrowRight className="w-3.5 h-3.5 group-hover/card:translate-x-1.5 transition-transform" />
                       </p>
@@ -1190,58 +1208,62 @@ export default function UserDashboard() {
                   .map((cat) => (
                     <div
                       key={cat}
-                      className="bg-white p-6 sm:p-8 rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.02)] border border-slate-100/85"
+                      className="bg-white/95 p-6 sm:p-8 rounded-3xl shadow-xs border border-[#E9E5DE]/80"
                     >
-                      <div className="flex justify-between items-end mb-6 pb-3 border-b border-slate-100">
+                      <div className="flex justify-between items-end mb-6 pb-4 border-b border-[#FAF9F6]">
                         <div>
-                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-none">
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#9A7F56] bg-amber-50 border border-amber-200/40 px-2.5 py-0.5 rounded-full mb-1 inline-block">
+                            Department Curation
+                          </span>
+                          <h3 className="text-xl sm:text-2xl font-serif font-semibold text-slate-900 leading-none">
                             {cat} Essentials
                           </h3>
                           <p className="text-xs text-slate-400 font-medium mt-1">
-                            Premium hand-picked curation from local British
-                            departments
+                            Premium hand-picked curation from local British departments
                           </p>
                         </div>
                         <button
                           onClick={() => {
                             handleCategorySelect(cat);
                           }}
-                          className="text-xs font-black text-red-600 hover:text-red-700 uppercase tracking-widest flex items-center gap-1 transition-all"
+                          className="text-xs font-bold text-[#9A7F56] hover:text-amber-900 uppercase tracking-wider flex items-center gap-1 transition-all"
                         >
                           See more <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="flex overflow-x-auto gap-5 pb-2 scrollbar-hide snap-x snap-mandatory">
+                      
+                      <div className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide snap-x snap-mandatory py-1">
                         {products
                           .filter((p) => p.category === cat)
                           .map((product) => (
                             <div
                               key={product.id}
-                              className="min-w-[200px] w-[200px] cursor-pointer group snap-center flex flex-col"
+                              className="min-w-[210px] w-[210px] cursor-pointer group snap-center flex flex-col bg-[#FAF9F6]/40 hover:bg-white rounded-2xl border border-transparent hover:border-[#EBE8E2] p-3 shadow-xs hover:shadow-md transition-all duration-300"
                               onClick={() => handleProductView(product)}
                             >
-                              <div className="bg-slate-50 border border-slate-100 rounded-3xl p-3 h-44 mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white group-hover:shadow-sm transition-all duration-300">
+                              <div className="bg-white rounded-xl p-3.5 h-44 mb-3.5 flex items-center justify-center relative overflow-hidden border border-[#EBE8E2]/40">
                                 <img
                                   src={product.image}
-                                  className="max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-all duration-300"
+                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-all duration-300"
                                   alt={product.name}
                                 />
                               </div>
-                              <h4 className="text-slate-800 font-medium text-xs line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors mt-1 mb-2">
+                              <h4 className="text-slate-800 font-bold text-xs line-clamp-2 leading-tight group-hover:text-[#9A7F56] transition-colors mt-1 mb-2">
                                 {product.name}
                               </h4>
-                              <div className="flex items-center justify-between mt-auto">
-                                <div className="text-slate-900 font-bold text-sm">
+                              
+                              <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100/60 font-sans">
+                                <div className="text-slate-900 font-black text-sm">
                                   £{parseFloat(product.price).toFixed(2)}
                                 </div>
                                 <button
-                                  className="bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-all"
+                                  className="bg-slate-950 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:bg-slate-800 hover:scale-110 active:scale-95 transition-all"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     toggleWishlist(product.id.toString(), e); // Using wishlist as cart toggle logic for simplicity
                                   }}
                                 >
-                                  <ShoppingCart className="w-4 h-4" />
+                                  <ShoppingCart className="w-4 h-4 text-white" />
                                 </button>
                               </div>
                             </div>
@@ -1322,41 +1344,44 @@ export default function UserDashboard() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                   {filteredProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-slate-100 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300 flex flex-col cursor-pointer relative"
+                      className="bg-white/95 rounded-[24px] border border-[#E9E5DE]/80 shadow-xs hover:shadow-md hover:border-[#9A7F56]/30 -translate-y-0 hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer relative group p-1.5 animate-in fade-in zoom-in-95 duration-200"
                       onClick={() => handleProductView(product)}
                       onMouseEnter={() => handlePrefetch(product.id)}
                     >
-                      {/* Wishlist Toggle */}
+                      {/* Wishlist Toggle Heart Button with micro-interactions */}
                       <button
                         onClick={(e) => toggleWishlist(product.id, e)}
-                        className="absolute top-3 right-3 z-10 w-8 h-8 bg-white/90 backdrop-blur shadow-sm rounded-full flex items-center justify-center hover:scale-110 transition-transform focus:outline-none"
+                        className="absolute top-4 right-4 z-10 w-8.5 h-8.5 bg-white/90 backdrop-blur shadow-sm rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-250 focus:outline-none border border-slate-100/60"
                       >
                         <Heart
-                          className={`w-4 h-4 transition-colors ${wishlist.includes(product.id.toString()) ? "fill-red-500 text-red-500" : "text-slate-400"}`}
+                          className={`w-4 h-4 transition-colors duration-250 ${wishlist.includes(product.id.toString()) ? "fill-red-500 text-red-500" : "text-slate-400 group-hover/btn:text-red-400"}`}
                         />
                       </button>
 
-                      <div className="p-4 bg-white flex justify-center items-center h-52 relative overflow-hidden border-b border-slate-50">
+                      {/* Display Case Image Box */}
+                      <div className="bg-[#FAF9F6] h-52 transition-transform duration-550 rounded-[18px] flex justify-center items-center relative overflow-hidden p-6 border border-slate-100/40">
                         {product.reviews > 400 && (
-                          <div className="absolute top-3 right-12 bg-slate-900 text-white text-[10px] uppercase tracking-wider font-extrabold px-3 py-1 flex items-center shadow-sm rounded-full z-10">
+                          <div className="absolute top-3 left-3 bg-slate-950/90 text-amber-300 text-[9px] uppercase tracking-widest font-black px-3 py-1 flex items-center shadow-xs rounded-full z-10 border border-amber-800/25">
                             Hot Seller
                           </div>
                         )}
                         <img
                           src={product.image}
                           alt={`${product.name} - Premium ${product.category} Curation`}
-                          className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
+                          className="object-contain w-full h-full group-hover:scale-[1.03] transition-transform duration-500 mix-blend-multiply"
                         />
                       </div>
-                      <div className="p-5 flex flex-col flex-1">
-                        <div className="flex items-center text-[10px] text-red-650 mb-1.5 font-bold tracking-wide uppercase">
+
+                      {/* Descriptive and Contextual Details Box */}
+                      <div className="p-4 sm:p-5 flex flex-col flex-1">
+                        <div className="flex items-center text-[10px] text-[#9A7F56] mb-1.5 font-extrabold tracking-widest uppercase">
                           {product.category}
                         </div>
-                        <h3 className="font-bold text-base text-slate-800 group-hover:text-red-650 transition-colors line-clamp-2 leading-tight mb-2">
+                        <h3 className="font-bold text-base text-slate-900 group-hover:text-[#9A7F56] transition-colors duration-250 line-clamp-2 leading-snug mb-2">
                           {product.name}
                         </h3>
 
@@ -1366,23 +1391,25 @@ export default function UserDashboard() {
                           </p>
                         )}
 
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-0.5">
-                            <Star className="w-3.5 h-3.5 fill-[#FFD814] text-[#FFD814]" />
-                            <Star className="w-3.5 h-3.5 fill-[#FFD814] text-[#FFD814]" />
-                            <Star className="w-3.5 h-3.5 fill-[#FFD814] text-[#FFD814]" />
-                            <Star className="w-3.5 h-3.5 fill-[#FFD814] text-[#FFD814]" />
-                            <span className="text-[11px] text-red-650 hover:underline font-extrabold ml-1.5">
+                        {/* Interactive Metrics */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3.5 pt-1">
+                          <div className="flex items-center gap-0.5 bg-amber-50/50 border border-amber-200/20 rounded-full px-2.5 py-1">
+                            <Star className="w-3.5 h-3.5 fill-[#FFC107] text-[#FFC107]" />
+                            <Star className="w-3.5 h-3.5 fill-[#FFC107] text-[#FFC107]" />
+                            <Star className="w-3.5 h-3.5 fill-[#FFC107] text-[#FFC107]" />
+                            <Star className="w-3.5 h-3.5 fill-[#FFC107] text-[#FFC107]" />
+                            <span className="text-[11px] text-[#9A7F56] hover:underline font-extrabold ml-1.5 leading-none">
                               {product.reviews} reviews
                             </span>
                           </div>
-                          <div className="text-[10px] font-extrabold text-[#AA1C1C] bg-red-50 px-2.5 py-0.5 rounded-full flex items-center">
-                            <Zap className="w-3 h-3 mr-0.5" /> {product.clicks}{" "}
+                          <div className="text-[10px] font-extrabold text-[#AA1C1C] bg-red-50/50 border border-red-100/50 px-2.5 py-1 rounded-full flex items-center">
+                            <Zap className="w-3 h-3 mr-1 animate-pulse" /> {product.clicks}{" "}
                             views
                           </div>
                         </div>
 
-                        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                        {/* Pricing Row with view deal action button */}
+                        <div className="mt-auto flex items-center justify-between border-t border-slate-100/80 pt-4 font-sans">
                           <div className="text-2xl font-black text-slate-900 leading-none">
                             £{parseFloat(product.price).toFixed(2)}
                           </div>
@@ -1391,7 +1418,7 @@ export default function UserDashboard() {
                               e.stopPropagation();
                               toggleWishlist(product.id.toString(), e);
                             }}
-                            className="bg-slate-900 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md hover:bg-slate-800 hover:scale-110 active:scale-95 transition-all focus:outline-none"
+                            className="bg-slate-950 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all outline-none focus:outline-none"
                           >
                             <ShoppingCart className="w-5 h-5" />
                           </button>
