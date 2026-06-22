@@ -28,6 +28,7 @@ import {
   Server,
   Terminal,
   Copy,
+  Share2,
   Lock,
   Wifi,
   Play,
@@ -171,10 +172,16 @@ export default function AdminDashboard() {
     footer_legal_links: '',
     footer_resource_heading: '',
     footer_resource_links: '',
-    footer_copyright: ''
+    footer_copyright: '',
+    n8n_publish_webhook_url: ''
   });
   const [globalSettingsSuccess, setGlobalSettingsSuccess] = useState('');
   const [globalSettingsLoading, setGlobalSettingsLoading] = useState(false);
+
+  // Pinterest & Webhook Testing states
+  const [testingWebhookType, setTestingWebhookType] = useState<'product' | 'blog' | null>(null);
+  const [webhookTestResult, setWebhookTestResult] = useState<any>(null);
+  const [webhookTestError, setWebhookTestError] = useState<string>('');
 
   // Users Management States
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -400,7 +407,8 @@ export default function AdminDashboard() {
           footer_legal_links: data.footer_legal_links || '',
           footer_resource_heading: data.footer_resource_heading || '',
           footer_resource_links: data.footer_resource_links || '',
-          footer_copyright: data.footer_copyright || ''
+          footer_copyright: data.footer_copyright || '',
+          n8n_publish_webhook_url: data.n8n_publish_webhook_url || ''
         });
       })
       .catch(console.error);
@@ -420,15 +428,47 @@ export default function AdminDashboard() {
       .then(data => {
         setGlobalSettingsLoading(false);
         if (data.success) {
-          setGlobalSettingsSuccess('Global header and footer content successfully updated!');
+          setGlobalSettingsSuccess('Global settings successfully updated!');
           fetchGlobalSettings();
         } else {
-          alert('Failed to save global settings changes.');
+          alert('Failed to save settings changes.');
         }
       })
       .catch(err => {
         console.error(err);
         setGlobalSettingsLoading(false);
+      });
+  };
+
+  const handleTestWebhook = (type: 'product' | 'blog') => {
+    const url = globalSettings.n8n_publish_webhook_url;
+    if (!url) {
+      alert("Please enter and save a valid n8n Webhook URL before running a test!");
+      return;
+    }
+
+    setTestingWebhookType(type);
+    setWebhookTestResult(null);
+    setWebhookTestError('');
+
+    fetch('/api/admin/publish-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ webhookUrl: url, testType: type })
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.ok) {
+          setWebhookTestResult(data);
+        } else {
+          setWebhookTestError(data.error || "Failed to trigger test webhook.");
+        }
+      })
+      .catch((err) => {
+        setWebhookTestError(err.message || "Network request failed.");
+      })
+      .finally(() => {
+        setTestingWebhookType(null);
       });
   };
 
@@ -1066,6 +1106,14 @@ export default function AdminDashboard() {
             className={`w-full px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer text-left mb-2 ${activeTab === 'emails' ? 'bg-[#0B192C] text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
           >
             <Mail className={`w-4 h-4 ${activeTab === 'emails' ? 'text-white' : 'text-slate-500'}`} /> ImprovMX Emails
+          </button>
+
+          <button 
+            id="tab-deployment"
+            onClick={() => { setActiveTab('deployment'); setIsSidebarOpen(false); }} 
+            className={`w-full px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer text-left mb-2 ${activeTab === 'deployment' ? 'bg-[#0B192C] text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+          >
+            <Share2 className={`w-4 h-4 ${activeTab === 'deployment' ? 'text-white' : 'text-slate-500'}`} /> Pinterest Autopost & RSS
           </button>
         </div>
 
@@ -3588,6 +3636,330 @@ export default function AdminDashboard() {
 
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'deployment' && (
+            <div id="pane-deployment" className="space-y-6 animate-fade-in text-left font-sans">
+              
+              {/* Top Welcome Alert Banner representing Pinterest & Webhooks Center */}
+              <div id="pinterest-header-card" className="bg-[#0B192C] text-white p-6 md:p-8 rounded-3xl shadow-lg border border-[#1E3046] relative overflow-hidden backdrop-blur-md">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-indigo-500/20 to-purple-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                    <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                      ⚡ Automated Publication Engine
+                    </span>
+                    <h3 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-3">
+                      <Share2 className="w-6 h-6 text-indigo-400 animate-pulse shrink-0" />
+                      Pinterest & Social Autopost Center
+                    </h3>
+                    <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                      Sync new products and AI blogs directly to Pinterest without manual effort. Securely integrate with <strong className="text-white">n8n</strong> or use our calibrated <strong className="text-white">RSS feeds</strong>.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="h-2 w-2 rounded-full bg-green-400 animate-ping self-center" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#FFF] bg-[#22C55E]/20 px-3 py-1.5 rounded-lg border border-[#22C55E]/30 whitespace-nowrap">
+                      System Operational
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid Section: Option 1 (n8n Webhook) & Option 2 (Pinterest RSS Feeds) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left Side: Easiest Method (n8n Webhook Settings & Testing Tools) - Large 7 Cols */}
+                <div className="lg:col-span-7 space-y-6">
+                  <div id="card-n8n-webhooks" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 shrink-0">
+                        <Share2 className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 tracking-tight">
+                          Option 1: Instant n8n Webhook Sync (Easiest Way)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-semibold leading-relaxed font-sans">
+                          No domain claiming required! Gets triggered instantly when blogs or products are generated.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Urdu Instruction Banner */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-205 space-y-2 mb-6">
+                      <h5 className="text-[10px] uppercase font-black tracking-widest text-slate-700 flex items-center gap-1.5 font-sans">
+                        🇬🇧 Instruction / Guide (Roman Urdu):
+                      </h5>
+                      <p className="text-xs text-slate-600 leading-relaxed font-semibold font-sans">
+                        N8n pe new workflow banayein, aur <strong className="text-slate-900 font-bold">Webhook Trigger node</strong> (POST method) add karein. N8n se standard Webhook URL copy karke niche paste karke Save karein. Hamara system har new product aur blog direct aapke n8n workflow me send karega, jahan se aap direct bina kisi domain limit ke Pinterest pe pins publish kar sakte hain!
+                      </p>
+                    </div>
+
+                    {/* Settings update form */}
+                    <form 
+                      id="form-n8n-webhook"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setGlobalSettingsLoading(true);
+                        setGlobalSettingsSuccess('');
+                        fetch('/api/global-settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ n8n_publish_webhook_url: globalSettings.n8n_publish_webhook_url })
+                        })
+                          .then(res => res.json())
+                          .then(data => {
+                            setGlobalSettingsLoading(false);
+                            if (data.success) {
+                              setGlobalSettingsSuccess('n8n Webhook URL saved successfully!');
+                              fetchGlobalSettings();
+                            } else {
+                              alert('Failed to save webhook settings.');
+                            }
+                          })
+                          .catch(() => setGlobalSettingsLoading(false));
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-1.5 text-left">
+                        <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest font-sans">
+                          n8n Webhook Production URL (POST Method)
+                        </label>
+                        <input
+                          id="input-webhook-url"
+                          type="url"
+                          required
+                          placeholder="https://your-n8n-domain.com/webhook/..."
+                          value={globalSettings.n8n_publish_webhook_url || ''}
+                          onChange={(e) => setGlobalSettings({ ...globalSettings, n8n_publish_webhook_url: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-xl text-xs font-mono font-bold text-slate-800 tracking-tight transition-all outline-hidden"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-[10px] text-slate-400 font-semibold font-sans">
+                          * Double check URL matches n8n production settings exactly.
+                        </p>
+                        <button
+                          id="btn-save-webhook"
+                          type="submit"
+                          disabled={globalSettingsLoading}
+                          className="bg-[#0B192C] hover:bg-slate-900 duration-150 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest px-5 py-3 rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-xs font-sans"
+                        >
+                          {globalSettingsLoading ? 'Saving...' : 'Save Webhook Configuration'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Developer Diagnostic testing panel */}
+                    <div id="webhook-diagnostics-panel" className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+                      <h4 className="text-xs font-black text-slate-900 tracking-tight uppercase tracking-wider text-slate-600 font-sans">
+                        ⚡ Instant Integration Diagnostic Tools
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-semibold leading-relaxed font-sans">
+                        Trigger simulated mock data to n8n to instantly verify active mapping, node structures, and database parameter delivery.
+                      </p>
+
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          id="btn-test-product"
+                          onClick={() => handleTestWebhook('product')}
+                          disabled={testingWebhookType !== null || globalSettingsLoading}
+                          className="flex-1 bg-indigo-50 hover:bg-indigo-100/80 active:bg-indigo-100 text-indigo-700 font-bold text-xs px-4 py-3 rounded-xl border border-indigo-100 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 font-sans"
+                        >
+                          {testingWebhookType === 'product' ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              Posting Test Product...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5 shrink-0" />
+                              Test Product Payload
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          id="btn-test-blog"
+                          onClick={() => handleTestWebhook('blog')}
+                          disabled={testingWebhookType !== null || globalSettingsLoading}
+                          className="flex-1 bg-emerald-50 hover:bg-emerald-100/80 active:bg-emerald-100 text-emerald-700 font-bold text-xs px-4 py-3 rounded-xl border border-emerald-100 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 font-sans"
+                        >
+                          {testingWebhookType === 'blog' ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              Posting Test Blog...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="w-3.5 h-3.5 shrink-0" />
+                              Test Blog Payload
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Display connection diagnostic state feedback with status codes */}
+                      {webhookTestResult && (
+                        <div id="test-success-alert" className="bg-emerald-50 border border-emerald-205 rounded-xl p-4 space-y-2 animate-fade-in text-emerald-900 text-xs font-sans">
+                          <div className="flex items-center gap-2 font-black">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 font-bold" />
+                            Connection Established successfully!
+                          </div>
+                          <p className="font-semibold text-emerald-700">
+                            n8n server received the test event perfectly. Response HTTP Status: <span className="font-black bg-emerald-100 px-1.5 py-0.5 rounded font-mono text-[10px] text-emerald-800">{webhookTestResult.status} (OK)</span>
+                          </p>
+                          <p className="text-[10px] text-emerald-600 font-medium">
+                            Your n8n workflow has received custom parameters (title, description, image_url, affiliate_link) which you can now drag-and-drop into Pinterest pins definition!
+                          </p>
+                        </div>
+                      )}
+
+                      {webhookTestError && (
+                        <div id="test-error-alert" className="bg-rose-50 border border-rose-205 rounded-xl p-4 space-y-1.5 animate-fade-in text-rose-900 text-xs font-semibold font-sans">
+                          <div className="flex items-center gap-2 font-bold text-rose-800">
+                            <AlertCircle className="w-4 h-4 text-rose-600" />
+                            Connection Failure Diagnostics
+                          </div>
+                          <p className="text-rose-700">
+                            Failure details: <code className="font-mono text-[10px] bg-rose-100 px-1 py-0.5 rounded text-rose-800 font-bold">{webhookTestError}</code>
+                          </p>
+                          <p className="text-[10px] text-rose-500 font-medium leading-normal">
+                            Check if your n8n workflow triggers are configured properly, the server is online, CORS or firewall checks permit outer hits, and your webhook is set to production mode.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Right Side: Traditional RSS Feeds & Claims Center - Small 5 Cols */}
+                <div className="lg:col-span-5 space-y-6">
+                  
+                  {/* RSS Feed Center */}
+                  <div id="card-rss-feeds" className="bg-white p-6 rounded-2xl border border-slate-202 shadow-xs space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shrink-0">
+                        <Globe className="w-5 h-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 tracking-tight font-sans">
+                          Option 2: XML RSS Feeds
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-semibold font-sans">
+                          Calibrated RSS 2.0 feeds configured specifically for Pinterest boards.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      {/* Products feed */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] uppercase font-black tracking-widest text-slate-400 font-sans">
+                          Affiliate Products Feed
+                        </span>
+                        <div className="flex gap-2">
+                          <input
+                            id="rss-products-url"
+                            type="text"
+                            readOnly
+                            value={`${window.location.origin}/feed/products.xml`}
+                            className="bg-slate-50 w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold text-slate-600 tracking-tight"
+                          />
+                          <button
+                            id="btn-copy-products-rss"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/feed/products.xml`);
+                              alert("Products RSS feed URL copied to clipboard!");
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 p-2 rounded-lg transition-all cursor-pointer"
+                            title="Copy link"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Blogs feed */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] uppercase font-black tracking-widest text-slate-400 font-sans">
+                          Affiliate Blogs Feed
+                        </span>
+                        <div className="flex gap-2">
+                          <input
+                            id="rss-blogs-url"
+                            type="text"
+                            readOnly
+                            value={`${window.location.origin}/feed/blogs.xml`}
+                            className="bg-slate-50 w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold text-slate-600 tracking-tight"
+                          />
+                          <button
+                            id="btn-copy-blogs-rss"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/feed/blogs.xml`);
+                              alert("Blogs RSS feed URL copied to clipboard!");
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 p-2 rounded-lg transition-all cursor-pointer"
+                            title="Copy link"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Check / Diagnose why RSS fails on Pinterest */}
+                    <div className="bg-amber-50/70 border border-amber-100 p-4 rounded-xl space-y-2 mt-4 text-left">
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1.5 font-sans">
+                        ⚠️ Why did Pinterest say "cannot be fetched"?
+                      </h4>
+                      <ol className="text-xs text-amber-700 space-y-1 leading-relaxed font-semibold list-decimal pl-4 font-sans">
+                        <li>
+                          Pinterest requires RSS feeds to come from standard <strong className="text-amber-900 font-bold">Claimed Domains</strong>. If your Pinterest Settings does not claim <strong className="text-amber-900 font-bold">ukstander.shop</strong>, it resolves "feed cannot be fetched".
+                        </li>
+                        <li>
+                          Your custom domain <strong className="text-amber-900 font-bold">ukstander.shop</strong> must point to this specific server. If it points to your old server, Pinterest cannot check it!
+                        </li>
+                      </ol>
+                    </div>
+
+                  </div>
+
+                  {/* Quick Preview active items inside feeds */}
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-202 space-y-3">
+                    <h5 className="text-[11px] uppercase font-black tracking-widest text-slate-600 flex items-center gap-2 font-sans overflow-hidden">
+                      <Terminal className="w-4 h-4 text-indigo-500 shrink-0" />
+                      Live Feed XML Structure Validator
+                    </h5>
+                    <p className="text-[11px] text-slate-400 font-semibold leading-relaxed font-sans">
+                      Verify that products and blogs exist on our database so your XML output compiles without errors:
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => window.open('/feed/products.xml', '_blank')}
+                        className="flex-1 bg-white hover:bg-slate-100 hover:shadow-xs duration-100 text-slate-800 border border-slate-200 font-bold text-[10px] px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                      >
+                        <ExternalLink className="w-3 h-3 text-slate-500" />
+                        Verify Products XML
+                      </button>
+                      <button
+                        onClick={() => window.open('/feed/blogs.xml', '_blank')}
+                        className="flex-1 bg-white hover:bg-slate-100 hover:shadow-xs duration-100 text-slate-800 border border-slate-200 font-bold text-[10px] px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                      >
+                        <ExternalLink className="w-3 h-3 text-slate-500" />
+                        Verify Blogs XML
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
             </div>
           )}
 

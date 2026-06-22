@@ -170,6 +170,55 @@ const db = createClient({
 
 const JWT_SECRET = (process.env.JWT_SECRET || "").trim() || 'super-secret-key-for-dev';
 
+function escapeXml(unsafe: string): string {
+  if (!unsafe) return '';
+  // Strip simple HTML tags if any to keep description clean
+  const clean = unsafe.replace(/<[^>]*>/g, '');
+  return clean
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+async function triggerPublishWebhook(type: 'blog' | 'product', payload: any) {
+  try {
+    const settingsRes = await db.execute({
+      sql: "SELECT value FROM global_settings WHERE key = 'n8n_publish_webhook_url'",
+      args: []
+    });
+    const webhookUrl = settingsRes.rows[0]?.value;
+    if (!webhookUrl) {
+      console.log(`[Webhook publisher] No n8n webhook URL set. Skipping publish for ${type}`);
+      return;
+    }
+    const webhookUrlStr = String(webhookUrl).trim();
+    if (!webhookUrlStr) {
+      return;
+    }
+
+    console.log(`[Webhook publisher] Sending ${type} webhook notification to: ${webhookUrlStr}...`);
+    
+    // Enrich with standard metadata
+    const enrichedPayload = {
+      event_type: `new_${type}`,
+      timestamp: new Date().toISOString(),
+      site_domain: "https://ukstander.shop",
+      data: payload
+    };
+
+    const fetchRes = await fetch(webhookUrlStr, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(enrichedPayload)
+    });
+    console.log(`[Webhook publisher] Response status: ${fetchRes.status}`);
+  } catch (e: any) {
+    console.error(`[Webhook publisher] Failed to trigger ${type} webhook:`, e.message || e);
+  }
+}
+
 // Initialize Default Groq AI Client (Global SEO)
 const groq = new AICompatibilityClient("Global SEO", "llama-3.3-70b-versatile");
 
@@ -2315,6 +2364,18 @@ ${rawContext}
 
         const newProduct = result.rows[0];
         
+        // Trigger n8n webhook for product
+        triggerPublishWebhook('product', {
+          id: newProduct && typeof newProduct.id !== 'undefined' ? newProduct.id : Number(result.lastInsertRowid),
+          title: aiData.title,
+          description: aiData.description,
+          price: price,
+          category: aiData.category || "General",
+          image_url: imageUrl || "",
+          affiliate_link: affiliateLink,
+          tags: cleanTags
+        });
+        
         // --- Blog Generation Logic ---
         console.log("[Blog AI] Generating blog post for product...");
         const blogPrompt = `You are an elite UK shopping blogger and SEO strategist for 'ukstander.shop'. 
@@ -2377,6 +2438,18 @@ Return valid JSON ONLY in this format:
               ]
             });
             console.log("[Blog AI] Blog generated and stored for slug:", slug);
+
+            // Trigger n8n webhook for blog
+            triggerPublishWebhook('blog', {
+              title: blogData.blogTitle,
+              content: blogData.blogContent,
+              slug: slug,
+              banner_image: imageUrl || "",
+              affiliate_link: affiliateLink,
+              tags: blogData.tags,
+              seo_title: blogData.seoTitle,
+              seo_description: blogData.seoDescription
+            });
           }
         } catch (blogErr: any) {
           console.error("[Blog AI] Failed specifically during blog generation:", blogErr.message || blogErr);
@@ -3175,6 +3248,104 @@ CORE INSTRUCTIONS:
     }
   });
 
+  // --- RSS Feed Endpoints for Pinterest Auto-Publishing ---
+  app.get('/feed/blogs.xml', async (req, res) => {
+    try {
+      const result = await db.execute(`
+        SELECT id, title, slug, banner_image, tags, seo_description, created_at, affiliate_link 
+        FROM blogs 
+        ORDER BY created_at DESC
+        LIMIT 50
+      `);
+      
+      const blogs = result.rows;
+      
+      const itemsXml = blogs.map((blog: any) => {
+        const cleanSlug = blog.slug.startsWith('/') ? blog.slug.slice(1) : blog.slug;
+        const blogUrl = `https://ukstander.shop/blog/${cleanSlug}`;
+        const imageUrl = blog.banner_image || 'https://ukstander.shop/assets/placeholder.jpg';
+        const pubDate = blog.created_at ? new Date(blog.created_at).toUTCString() : new Date().toUTCString();
+        
+        return `
+    <item>
+      <title>${escapeXml(blog.title)}</title>
+      <link>${escapeXml(blogUrl)}</link>
+      <description>${escapeXml(blog.seo_description || 'Latest review on UKStander')}</description>
+      <pubDate>${pubDate}</pubDate>
+      <guid isPermaLink="true">${escapeXml(blogUrl)}</guid>
+      <enclosure url="${escapeXml(imageUrl)}" type="image/jpeg" />
+      <media:content url="${escapeXml(imageUrl)}" type="image/jpeg" medium="image">
+        <media:title type="plain">${escapeXml(blog.title)}</media:title>
+      </media:content>
+    </item>`;
+      }).join('\n');
+      
+      const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>UKStander - Latest Blog Reviews</title>
+    <link>https://ukstander.shop/</link>
+    <description>Latest high-quality UK retail trends, product reviews and blogs from UKStander</description>
+    <language>en-gb</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    ${itemsXml}
+  </channel>
+</rss>`;
+
+      res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.send(rssXml);
+    } catch (e: any) {
+      console.error("[RSS Blogs Feed] Failed generation:", e);
+      res.status(500).send(`<error>Failed to generate blogs RSS feed: ${escapeXml(e.message)}</error>`);
+    }
+  });
+
+  app.get('/feed/products.xml', async (req, res) => {
+    try {
+      const products = await getCachedEnrichedProducts();
+      
+      const itemsXml = products.slice(0, 50).map((product: any) => {
+        const productUrl = product.affiliate_link || `https://ukstander.shop/product/${product.id}`;
+        const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        const pubDate = product.created_at ? new Date(product.created_at).toUTCString() : new Date().toUTCString();
+        const desc = product.ai_description || `Grab this amazing trending UK product. Price: £${product.price}`;
+        
+        return `
+    <item>
+      <title>${escapeXml(product.ai_title || 'Trending UK Product')}</title>
+      <link>${escapeXml(productUrl)}</link>
+      <description>${escapeXml(desc)}</description>
+      <price>${product.price || ''}</price>
+      <category>${escapeXml(product.category || 'E-Commerce')}</category>
+      <pubDate>${pubDate}</pubDate>
+      <guid isPermaLink="false">product-${product.id}</guid>
+      <enclosure url="${escapeXml(imageUrl)}" type="image/jpeg" />
+      <media:content url="${escapeXml(imageUrl)}" type="image/jpeg" medium="image">
+        <media:title type="plain">${escapeXml(product.ai_title || '')}</media:title>
+      </media:content>
+    </item>`;
+      }).join('\n');
+      
+      const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>UKStander - Latest Trending Products</title>
+    <link>https://ukstander.shop/</link>
+    <description>Latest high-quality UK hot retail trends and curated best-seller products on UKStander</description>
+    <language>en-gb</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    ${itemsXml}
+  </channel>
+</rss>`;
+
+      res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.send(rssXml);
+    } catch (e: any) {
+      console.error("[RSS Products Feed] Failed generation:", e);
+      res.status(500).send(`<error>Failed to generate products RSS feed: ${escapeXml(e.message)}</error>`);
+    }
+  });
+
   // --- Blog System Endpoints ---
   app.get('/api/blogs', async (req, res) => {
     try {
@@ -3468,6 +3639,18 @@ Return valid JSON ONLY (no comments) in this format:
         ]
       });
 
+      // Trigger n8n webhook for blog
+      triggerPublishWebhook('blog', {
+        title: aiResult.title || sug.suggested_title,
+        content: aiResult.content || sug.suggested_description,
+        slug: uniqueSlug,
+        banner_image: sug.image_url,
+        tags: aiResult.tags || sug.category,
+        affiliate_link: affiliateLink,
+        seo_title: aiResult.title || sug.suggested_title,
+        seo_description: aiResult.seo_description || `Expert review of the ${sug.suggested_title} for UK shoppers.`
+      });
+
       // Update suggestion status
       await db.execute({
         sql: "UPDATE ai_trend_suggestions SET status = 'approved' WHERE id = ?",
@@ -3522,6 +3705,19 @@ Return valid JSON ONLY (no comments) in this format:
           args: [title, content, slug, product_id || null, banner_image || null, slider_images || '[]', affiliate_link || null, tags || '', seo_title || '', seo_description || '']
         });
         invalidateServerCache('blogs');
+
+        // Trigger n8n webhook for manual blog
+        triggerPublishWebhook('blog', {
+          title: title,
+          content: content,
+          slug: slug,
+          banner_image: banner_image || "",
+          affiliate_link: affiliate_link || "",
+          tags: tags || "",
+          seo_title: seo_title || "",
+          seo_description: seo_description || ""
+        });
+
         res.json({ success: true, message: "Blog created successfully" });
       }
     } catch (e: any) {
@@ -3695,6 +3891,61 @@ Return valid JSON ONLY (no comments) in this format:
     } catch (e) {
       console.error("Failed to update global settings", e);
       res.status(500).json({ error: "Failed to update global settings" });
+    }
+  });
+
+  // POST test publish webhook to n8n
+  app.post('/api/admin/publish-test', async (req, res) => {
+    try {
+      const { webhookUrl, testType } = req.body;
+      if (!webhookUrl) {
+        res.status(400).json({ error: "n8n Webhook URL is required for testing." });
+        return;
+      }
+
+      console.log(`[Webhook test] Sending manual test ${testType} payload to: ${webhookUrl}`);
+      
+      const payload = testType === 'product' ? {
+        id: 9999,
+        title: "Test Stanley Quencher Tumbler 40oz (n8n Connection)",
+        description: "This is a simulated test product to verify your n8n workflow behaves perfectly. It is designed to match the exact schema of real products published on ukstander.shop.",
+        price: 44.99,
+        category: "Home & Kitchen",
+        image_url: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&q=80&w=450",
+        affiliate_link: "https://www.amazon.co.uk/s?k=Stanley+Quencher+H2.0",
+        tags: "stanley, quencher, tumbler, insulation, design, gift, hydration"
+      } : {
+        title: "How to Style Your Cozy UK Study Space with Warm Lights",
+        content: "# Cozy UK Study Spaces\n\nDesigning a beautifully warm and minimalist study setup in Great Britain starts with lighting.\n\n## 1. Warm String Lights\nCreate ambient glow and reduce screen eye strain with warm string decoration LEDs.\n\n## 2. Minimal Desk Accents\nAdd a high-quality solid wood desk organizer and Marshall speakers to bring absolute character.\n\nRead more curated guides live on ukstander.shop!",
+        slug: "style-cozy-uk-study-space-with-warm-lights-9999",
+        banner_image: "https://images.unsplash.com/photo-1608248597481-496100c8c836?auto=format&fit=crop&q=80&w=450",
+        affiliate_link: "https://www.amazon.co.uk/dp/B00V...",
+        tags: "#interiors, #cozystudy, #homedecor",
+        seo_title: "Top Cozy UK Study Space Lamp Picks | UKStander",
+        seo_description: "Expert design guide to crafting a cozy, elegant study layout using soft led accents."
+      };
+
+      const enrichedPayload = {
+        event_type: `test_${testType}`,
+        timestamp: new Date().toISOString(),
+        site_domain: "https://ukstander.shop",
+        data: payload
+      };
+
+      const fetchRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(enrichedPayload)
+      });
+
+      res.json({ 
+        success: true, 
+        message: `Successfully fired test ${testType} event to n8n!`, 
+        status: fetchRes.status 
+      });
+    } catch (e: any) {
+      console.error("[Webhook test] Call failed:", e);
+      res.status(500).json({ error: `Connection failed: ${e.message || e}` });
     }
   });
 
