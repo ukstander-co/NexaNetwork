@@ -239,6 +239,24 @@ async function initializeDatabase() {
       try {
         await db.execute("ALTER TABLE ai_trend_suggestions ADD COLUMN additional_images TEXT");
       } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN additional_images TEXT");
+      } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN rating REAL DEFAULT 4.7");
+      } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN ai_schema TEXT");
+      } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN reviews_count INTEGER DEFAULT 150");
+      } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN cart_count INTEGER DEFAULT 12");
+      } catch (e) {}
+      try {
+        await db.execute("ALTER TABLE products ADD COLUMN views_count INTEGER DEFAULT 340");
+      } catch (e) {}
 
       // Robustly ensure newly added tables are created on pre-existing databases to prevent SQL errors
       try {
@@ -2991,7 +3009,17 @@ Return valid JSON ONLY in this format:
         ai_tags: p.ai_tags,
         clicks: p.views_count,
         cart_count: p.cart_count,
-        additionalImages: p.additional_images ? JSON.parse(p.additional_images as string) : []
+        additionalImages: (() => {
+          if (!p.additional_images) return [];
+          const str = (p.additional_images as string).trim();
+          if (str.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(str);
+              if (Array.isArray(parsed)) return parsed;
+            } catch (e) {}
+          }
+          return str.split(',').map((img: any) => String(img).trim()).filter(Boolean);
+        })()
       }));
 
       // Filter catalog by basic constraints
@@ -3417,7 +3445,17 @@ CORE INSTRUCTIONS:
         ...blog,
         product_id: productId,
         affiliate_link: affLink,
-        slider_images: blog.slider_images ? JSON.parse(blog.slider_images as string) : [],
+        slider_images: (() => {
+          if (!blog.slider_images) return [];
+          const str = (blog.slider_images as string).trim();
+          if (str.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(str);
+              if (Array.isArray(parsed)) return parsed;
+            } catch (e) {}
+          }
+          return str.split(',').map((img: any) => String(img).trim()).filter(Boolean);
+        })(),
         comments: commentsRes.rows
       });
     } catch (e) {
