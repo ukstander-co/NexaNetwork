@@ -36,7 +36,8 @@ import {
   Trash,
   Eye,
   Menu,
-  Mail
+  Mail,
+  User
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -50,6 +51,15 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   PieChart, Pie, Cell
 } from 'recharts';
+
+const getCandidateGender = (titleText: string = '', descText: string = ''): string => {
+  const text = (titleText + " " + descText).toLowerCase();
+  if (text.includes("unisex")) return "unisex";
+  if (text.includes("women") || text.includes("womens") || text.includes("female") || text.includes("ladies") || text.includes("lady") || text.includes("girl") || text.includes("shampoo for women") || text.includes("curler") || text.includes("hair wrap") || text.includes("makeup") || text.includes("dress")) return "women";
+  if (text.includes("men ") || text.includes(" mens ") || text.includes(" gentlemen") || text.includes(" male") || text.includes("boy ") || text.includes("shaving") || text.includes("beard") || text.includes("grooming")) return "men";
+  if (text.includes("kids") || text.includes("children") || text.includes("baby") || text.includes("toddler") || text.includes("toy") || text.includes("lego")) return "kids";
+  return "unisex";
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -73,6 +83,9 @@ export default function AdminDashboard() {
   const [loadingTrends, setLoadingTrends] = useState(false);
   const [trendsActionLoader, setTrendsActionLoader] = useState<string | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<any | null>(null);
+  const [trendFilterGender, setTrendFilterGender] = useState<string>('all');
+  const [trendFilterCategory, setTrendFilterCategory] = useState<string>('all');
+
   
   // Predictive Trend Spotter States
   const [trendsSubTab, setTrendsSubTab] = useState<'hunt' | 'spotter'>('spotter');
@@ -158,6 +171,10 @@ export default function AdminDashboard() {
   const [globalSettings, setGlobalSettings] = useState<any>({
     header_promo: '',
     header_links: '',
+    amazon_rapidapi_key: '',
+    amazon_rapidapi_max_products: '15',
+    amazon_rapidapi_request_count: '0',
+    amazon_rapidapi_request_limit: '1000',
     rainforest_api_key: '',
     ranknibbler_api_key: '',
     pagespeed_api_key: '',
@@ -393,6 +410,10 @@ export default function AdminDashboard() {
         setGlobalSettings({
           header_promo: data.header_promo || '',
           header_links: data.header_links || '',
+          amazon_rapidapi_key: data.amazon_rapidapi_key || '',
+          amazon_rapidapi_max_products: data.amazon_rapidapi_max_products || '15',
+          amazon_rapidapi_request_count: data.amazon_rapidapi_request_count || '0',
+          amazon_rapidapi_request_limit: data.amazon_rapidapi_request_limit || '1000',
           rainforest_api_key: data.rainforest_api_key || '',
           ranknibbler_api_key: data.ranknibbler_api_key || '',
           pagespeed_api_key: data.pagespeed_api_key || '',
@@ -2269,17 +2290,17 @@ export default function AdminDashboard() {
                     <div className="bg-emerald-50/70 p-5 rounded-2xl border border-emerald-100 flex flex-col gap-4">
                       <div>
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3" /> Rainforest Amazon API Key
+                          <Sparkles className="w-3 h-3" /> RapidAPI Amazon Data Key
                         </label>
                         <input 
                           type="password" 
-                          value={globalSettings.rainforest_api_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, rainforest_api_key: e.target.value })} 
+                          value={globalSettings.amazon_rapidapi_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, amazon_rapidapi_key: e.target.value })} 
                           className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your Rainforest API key here"
+                          placeholder="Paste your RapidAPI key here (e.g., be4073b80fmshb89af07ca81c257p1a3691jsne299b0d2e254)"
                         />
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
-                          When the 100-request limit is reached, simply update this key with a new one from your Rainforest account to resume automated hunts.
+                          Enter your active RapidAPI key for the "Real-Time Amazon Data" API to synchronize live UK products dynamically.
                         </p>
                       </div>
 
@@ -2328,6 +2349,70 @@ export default function AdminDashboard() {
                             onChange={e => setGlobalSettings({ ...globalSettings, rainforest_min_reviews: e.target.value })} 
                             className="w-full bg-white border border-emerald-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
                             placeholder="0 for no limit"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">
+                            Max Products per Sync
+                          </label>
+                          <input 
+                            type="number" 
+                            min="1"
+                            max="100"
+                            value={globalSettings.amazon_rapidapi_max_products || '15'} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, amazon_rapidapi_max_products: e.target.value })} 
+                            className="w-full bg-white border border-emerald-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="e.g. 15 (default)"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="border-t border-emerald-200/50 pt-3 mt-1 text-left">
+                        <div className="flex justify-between items-center mb-1.5">
+                          <label className="block text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1">
+                            📊 RapidAPI Quota Usage tracker
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to reset the RapidAPI request counter to 0?')) {
+                                setGlobalSettings(prev => ({ ...prev, amazon_rapidapi_request_count: '0' }));
+                              }
+                            }}
+                            className="text-[9px] bg-red-100 hover:bg-red-200 text-red-700 font-extrabold px-2 py-0.5 rounded transition-all cursor-pointer"
+                          >
+                            Reset Counter
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-emerald-100">
+                            <div 
+                              className={`h-full transition-all duration-500 ${
+                                (Number(globalSettings.amazon_rapidapi_request_count || 0) / Number(globalSettings.amazon_rapidapi_request_limit || 1000)) >= 0.9 
+                                ? 'bg-rose-500 animate-pulse' 
+                                : (Number(globalSettings.amazon_rapidapi_request_count || 0) / Number(globalSettings.amazon_rapidapi_request_limit || 1000)) >= 0.7 
+                                ? 'bg-amber-500' 
+                                : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(100, (Number(globalSettings.amazon_rapidapi_request_count || 0) / Number(globalSettings.amazon_rapidapi_request_limit || 1000)) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-emerald-800 font-bold whitespace-nowrap leading-none">
+                            {globalSettings.amazon_rapidapi_request_count || 0} / {globalSettings.amazon_rapidapi_request_limit || 1000} Reqs
+                          </span>
+                        </div>
+                        <div className="mt-2.5 flex flex-col md:flex-row md:items-center gap-2">
+                          <label className="block text-[10px] font-bold text-emerald-700 uppercase">
+                            Soft Limit Allowed Count:
+                          </label>
+                          <input 
+                            type="number" 
+                            min="1"
+                            value={globalSettings.amazon_rapidapi_request_limit || '1000'} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, amazon_rapidapi_request_limit: e.target.value })} 
+                            className="bg-white border border-emerald-200 rounded p-1 text-[10px] font-bold text-slate-700 w-24 focus:outline-none focus:border-emerald-500"
+                            placeholder="e.g. 1000"
                           />
                         </div>
                       </div>
@@ -2751,7 +2836,7 @@ export default function AdminDashboard() {
                       }}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
                     >
-                      <Globe className="w-3.5 h-3.5" /> Rainforest Sync
+                      <Globe className="w-3.5 h-3.5" /> Sync Amazon UK Data
                     </button>
                   </div>
                 </div>
@@ -2780,7 +2865,7 @@ export default function AdminDashboard() {
                   className="bg-[#0B192C] hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition-all self-start md:self-center flex items-center gap-2 cursor-pointer flex-shrink-0"
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingTrends ? 'animate-spin' : ''}`} />
-                  {loadingTrends ? 'Scanning search grids...' : 'Trigger Trend Scan Now'}
+                  {loadingTrends ? 'Scanning Amazon UK...' : 'Extract Candidates from Amazon'}
                 </button>
               </div>
 
@@ -2817,9 +2902,39 @@ export default function AdminDashboard() {
                 <div className="lg:col-span-2 space-y-3">
                   <div className="flex items-center justify-between pb-1">
                     <h4 className="text-xs uppercase font-black tracking-widest text-slate-500">
-                      Discovered Candidates ({trendSuggestions.length})
+                      Discovered Candidates ({(() => {
+                        const filtered = trendSuggestions.filter((sug) => {
+                          const gender = getCandidateGender(sug.suggested_title, sug.suggested_description);
+                          if (trendFilterGender !== 'all' && gender !== trendFilterGender) return false;
+                          if (trendFilterCategory !== 'all' && sug.category !== trendFilterCategory) return false;
+                          return true;
+                        });
+                        return filtered.length;
+                      })()})
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-bold">Unpublished retail items awaiting vetting</span>
+                    <div className="flex gap-2">
+                       <select 
+                         value={trendFilterCategory}
+                         onChange={(e) => setTrendFilterCategory(e.target.value)}
+                         className="text-[10px] bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600 font-bold outline-none cursor-pointer uppercase"
+                       >
+                         <option value="all">Cat: All</option>
+                         {Array.from(new Set(trendSuggestions.map(s => s.category).filter(Boolean))).map(cat => (
+                           <option key={cat} value={cat}>Cat: {cat}</option>
+                         ))}
+                       </select>
+                       <select
+                         value={trendFilterGender}
+                         onChange={(e) => setTrendFilterGender(e.target.value)}
+                         className="text-[10px] bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600 font-bold outline-none cursor-pointer uppercase"
+                       >
+                         <option value="all">Gen: All</option>
+                         <option value="men">Gen: Men</option>
+                         <option value="women">Gen: Women</option>
+                         <option value="kids">Gen: Kids</option>
+                         <option value="unisex">Gen: Unisex</option>
+                       </select>
+                    </div>
                   </div>
 
                   {loadingTrends && trendSuggestions.length === 0 ? (
@@ -2847,7 +2962,12 @@ export default function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                      {trendSuggestions.map((sug) => {
+                      {trendSuggestions.filter((sug) => {
+                          const gender = getCandidateGender(sug.suggested_title, sug.suggested_description);
+                          if (trendFilterGender !== 'all' && gender !== trendFilterGender) return false;
+                          if (trendFilterCategory !== 'all' && sug.category !== trendFilterCategory) return false;
+                          return true;
+                        }).map((sug) => {
                         const isPending = sug.status === 'pending';
                         const isApproved = sug.status === 'approved';
                         const isRejected = sug.status === 'rejected';
@@ -2914,6 +3034,17 @@ export default function AdminDashboard() {
                                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-2 text-[10px] text-slate-600 font-bold leading-normal">
                                   <span className="text-slate-400 font-black uppercase text-[9px] block">UK Search Trigger:</span>
                                   {sug.trend_reason}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  <span className="text-[9px] uppercase font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-200">
+                                    <User className="w-3 h-3"/> {getCandidateGender(sug.suggested_title, sug.suggested_description)}
+                                  </span>
+                                  <span className="text-[9px] uppercase font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-200">
+                                    <Calendar className="w-3 h-3"/> {new Date(sug.created_at || Date.now()).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-[9px] uppercase font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-indigo-100">
+                                    <Search className="w-3 h-3"/> KW: {sug.category}
+                                  </span>
                                 </div>
                               </div>
                             </div>

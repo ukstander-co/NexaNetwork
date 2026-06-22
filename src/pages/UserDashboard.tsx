@@ -180,6 +180,13 @@ export default function UserDashboard() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMobileFiltersExpanded, setIsMobileFiltersExpanded] = useState(false);
 
+  // Real-time Live Amazon Lookup States
+  const [liveProducts, setLiveProducts] = useState<any[]>([]);
+  const [liveSearching, setLiveSearching] = useState(false);
+  const [liveSearchQuery, setLiveSearchQuery] = useState("");
+  const [liveError, setLiveError] = useState("");
+  const [liveTriggered, setLiveTriggered] = useState(false);
+
   // Shopping Assistant widget keys
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
   const [widgetMessages, setWidgetMessages] = useState<any[]>([
@@ -762,6 +769,41 @@ export default function UserDashboard() {
     }
   };
 
+  const handleLiveAmazonSearch = async (termToSearch?: string) => {
+    const queryTerm = termToSearch || liveSearchQuery || searchInput || "smart tracker";
+    if (!queryTerm.trim()) return;
+
+    setLiveSearching(true);
+    setLiveError("");
+    setLiveTriggered(true);
+
+    const userLocal = localStorage.getItem("user");
+    const parsedUser = userLocal ? JSON.parse(userLocal) : null;
+    const activeRole = parsedUser?.role || "user";
+
+    try {
+      const response = await fetch("/api/products/live-amazon-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          search_term: queryTerm,
+          role: activeRole
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLiveProducts(data.products || []);
+      } else {
+        setLiveError(data.error || "Failed to lookup live listings.");
+      }
+    } catch (err) {
+      console.error(err);
+      setLiveError("Trouble connecting to active UK database synchronization nodes.");
+    } finally {
+      setLiveSearching(false);
+    }
+  };
+
   const executeSearch = () => {
     activateSession();
     saveSearch(searchInput);
@@ -1334,14 +1376,29 @@ export default function UserDashboard() {
                   ))}
                 </div>
               ) : filteredProducts.length === 0 ? (
-                <div className="text-center py-20 bg-white/40 backdrop-blur-md rounded-3xl border border-white/50">
-                  <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <div className="text-center py-20 bg-white/40 backdrop-blur-md rounded-3xl border border-[#E9E5DE] shadow-xs">
+                  <Search className="w-12 h-12 text-slate-300 mx-auto mb-4 animate-bounce" />
                   <h3 className="text-xl font-bold text-slate-700 mb-2">
-                    No products found
+                    No products matching your search found
                   </h3>
-                  <p className="text-slate-500">
-                    Try adjusting your filters or search query.
+                  <p className="text-slate-500 max-w-sm mx-auto mb-6">
+                    We didn't find this item in our curated local catalogs yet, but you can search active Amazon UK platforms in real-time below!
                   </p>
+                  <button
+                    onClick={() => {
+                      const scannerEl = document.getElementById("live-amazon-scanner");
+                      if (scannerEl) {
+                        scannerEl.scrollIntoView({ behavior: 'smooth' });
+                      }
+                      if (searchInput) {
+                        setLiveSearchQuery(searchInput);
+                        handleLiveAmazonSearch(searchInput);
+                      }
+                    }}
+                    className="bg-[#9A7F56] hover:bg-slate-950 text-white font-extrabold px-6 py-3 rounded-2xl text-xs transition-all uppercase tracking-wider shadow-sm cursor-pointer"
+                  >
+                    🚀 Live Scan Amazon UK for "{searchInput || 'your query'}"
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
@@ -1428,6 +1485,113 @@ export default function UserDashboard() {
                   ))}
                 </div>
               )}
+
+              {/* Specialized Real-Time Amazon UK Scanner Module */}
+              <div id="live-amazon-scanner" className="mt-14 p-8 bg-slate-900 text-white rounded-[32px] shadow-xl relative overflow-hidden border border-slate-850">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-[#9A7F56]/15 rounded-full filter blur-[100px] pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-900/10 rounded-full filter blur-[100px] pointer-events-none" />
+                
+                <div className="relative z-10 max-w-4xl mx-auto text-center">
+                  <span className="text-xs font-bold tracking-widest text-[#9A7F56] uppercase mb-3 block">
+                    ⚡ Live UK Database Integration
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-serif font-black mb-4 tracking-tight">
+                    Search active Amazon UK real-time platforms!
+                  </h2>
+                  <p className="text-sm text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed">
+                    Search active Amazon United Kingdom inventory in real-time. This handles real-time prices & instant affiliate mapping tailored to your active account status.
+                  </p>
+
+                  {/* Input form */}
+                  <div className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto mb-10">
+                    <input 
+                      type="text"
+                      value={liveSearchQuery}
+                      onChange={(e) => setLiveSearchQuery(e.target.value)}
+                      placeholder="e.g. Dyson airwrap, leather jacket, wireless charger..."
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-[#9A7F56] placeholder-slate-400"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleLiveAmazonSearch();
+                      }}
+                    />
+                    <button
+                      onClick={() => handleLiveAmazonSearch()}
+                      disabled={liveSearching}
+                      className="bg-[#9A7F56] hover:bg-[#8D7048] active:scale-95 disabled:scale-100 disabled:opacity-50 text-white font-bold px-7 py-4 rounded-2xl text-sm transition-all whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {liveSearching ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Searching...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Search Amazon Live</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {liveError && (
+                    <div className="bg-rose-950/40 text-rose-300 px-4 py-3 rounded-xl border border-rose-900/45 text-xs font-medium mb-6 max-w-md mx-auto">
+                      ⚠️ {liveError}
+                    </div>
+                  )}
+
+                  {/* Live Results Grid */}
+                  {liveTriggered && !liveSearching && liveProducts.length === 0 && !liveError && (
+                    <p className="text-slate-400 text-xs">No live matches found in Amazon UK repositories. Please try another keyword.</p>
+                  )}
+
+                  {liveProducts.length > 0 && (
+                    <div className="text-left mt-8">
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                        🔍 Live Results found on Amazon UK ({liveProducts.length} items):
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {liveProducts.map((p) => (
+                          <div 
+                            key={p.id}
+                            className="bg-slate-800/80 border border-slate-700 rounded-[24px] p-4 flex flex-col hover:border-[#9A7F56]/50 transition-all group pointer-events-auto cursor-default"
+                          >
+                            <div className="h-40 bg-white rounded-2xl flex items-center justify-center overflow-hidden p-4 mb-4 relative">
+                              <span className="absolute top-2 left-2 bg-[#9A7F56] text-white font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-full shadow-xs">
+                                Live Store Match
+                              </span>
+                              <img src={p.image} alt={p.name} className="object-contain h-full max-h-32 transition-transform duration-500 group-hover:scale-105" />
+                            </div>
+                            <h4 className="text-sm font-bold text-slate-100 line-clamp-2 leading-tight mb-2 flex-grow">
+                              {p.name}
+                            </h4>
+                            <div className="flex items-center gap-1.5 mb-3">
+                              <div className="flex text-amber-500">★</div>
+                              <span className="text-[10px] text-slate-300 font-extrabold">
+                                {p.rating} / 5 ({p.reviews_count} shoppers checks)
+                              </span>
+                            </div>
+                            <div className="mt-auto pt-3 border-t border-slate-700/60 flex items-center justify-between">
+                              <span className="text-lg font-black text-amber-400">
+                                £{parseFloat(p.price).toFixed(2)}
+                              </span>
+                              <a 
+                                href={p.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="bg-[#9A7F56] hover:bg-[#8D7048] text-white text-[10px] font-extrabold tracking-wider uppercase px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5"
+                              >
+                                <span>Buy on Amazon UK ↗</span>
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-5 leading-tight text-center">
+                        * These newly matched results have also been saved as suggestions for the Store Editor. They will appear in the Admin Dashboard for official curation approvals.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           )}
         </div>

@@ -117,6 +117,32 @@ class AICompatibilityClient {
                   seoTitle: "Spotlight Review: Premier Selections for UK Buyers",
                   seoDescription: "An in-depth guide and comprehensive performance report outlining why these products lead the UK retail space."
                 };
+              } else if (promptStr.includes("sorted_ids")) {
+                // Sorting list of IDs
+                fallbackObj = {
+                  sorted_ids: []
+                };
+              } else if (promptStr.includes("products")) {
+                fallbackObj = {
+                  products: [
+                    {
+                      title: "Smart Ergonomic Desk Lamp Pro",
+                      description: "Elevate your study or workspace setup in the UK. Designed with custom temperature toggles and ambient glow that British professionals love.",
+                      price: 34.99,
+                      image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&q=80&w=500",
+                      link: "https://www.amazon.co.uk/s?k=study+desk+lamp+led",
+                      trend_reason: "High volume of search peaks in London and Manchester for premium student bedroom study setup items."
+                    },
+                    {
+                      title: "Minimalist Birch Desktop Organizer",
+                      description: "Designed for elegance and absolute desk harmony, featuring custom stationery slots and solid certified Siberian birch craft.",
+                      price: 24.99,
+                      image: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=500",
+                      link: "https://www.amazon.co.uk/s?k=wooden+desk+organizer",
+                      trend_reason: "Growing organic trend for clean, space-saving work-from-home aesthetics in the UK."
+                    }
+                  ]
+                };
               } else if (promptStr.includes("category") && promptStr.includes("tags")) {
                 // New product generation fields
                 fallbackObj = {
@@ -790,6 +816,42 @@ To start a return, please follow these simple steps:
       await db.execute({
         sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
         args: ['pagespeed_api_key', 'AIzaSyALOzJoNj4xCI2i6sAWvr28WTDfFEQeBdo']
+      });
+    }
+
+    // Ensure amazon_rapidapi_key exists
+    const activeAmazonRapidApiKeyCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'amazon_rapidapi_key'");
+    if (Number(activeAmazonRapidApiKeyCheck.rows[0].count) === 0) {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['amazon_rapidapi_key', 'be4073b80fmshb89af07ca81c257p1a3691jsne299b0d2e254']
+      });
+    }
+
+    // Ensure amazon_rapidapi_max_products exists
+    const maxProdCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'amazon_rapidapi_max_products'");
+    if (Number(maxProdCheck.rows[0].count) === 0) {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['amazon_rapidapi_max_products', '15']
+      });
+    }
+
+    // Ensure amazon_rapidapi_request_count exists
+    const reqCountCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'amazon_rapidapi_request_count'");
+    if (Number(reqCountCheck.rows[0].count) === 0) {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['amazon_rapidapi_request_count', '0']
+      });
+    }
+
+    // Ensure amazon_rapidapi_request_limit exists
+    const reqLimitCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'amazon_rapidapi_request_limit'");
+    if (Number(reqLimitCheck.rows[0].count) === 0) {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['amazon_rapidapi_request_limit', '1000']
       });
     }
 
@@ -1953,7 +2015,7 @@ function startServer() {
     res.json({ message: "Sync endpoint is active. Use POST to send data." });
   });
 
-  // Rainforest API Sync Orchestrator
+  // RapidAPI Amazon Real-Time API Sync Orchestrator
   app.post('/api/admin/trigger-rainforest-sync', async (req, res) => {
     // Fetch all global settings to retrieve API parameters and filters
     const settingsRows = await db.execute("SELECT key, value FROM global_settings");
@@ -1962,21 +2024,35 @@ function startServer() {
       settings[row.key] = row.value;
     });
 
-    const RAINFOREST_KEY = settings['rainforest_api_key'] || process.env.RAINFOREST_API_KEY;
+    const configKey = (settings['amazon_rapidapi_key'] || settings['rainforest_api_key'] || "").trim();
+    const envKey = (process.env.AMAZON_RAPIDAPI_KEY || process.env.RAPIDAPI_KEY || process.env.RAINFOREST_API_KEY || "").trim();
+    const RAPID_KEY = configKey || envKey;
+
+    const maskKey = (keyStr: string) => {
+      if (!keyStr) return "(Empty)";
+      if (keyStr.length <= 8) return "***";
+      return keyStr.slice(0, 4) + "..." + keyStr.slice(-4);
+    };
+
+    console.log(`[Amazon RapidAPI Diagnostics]`);
+    console.log(`- Database key: ${maskKey(configKey)}`);
+    console.log(`- Env key: ${maskKey(envKey)}`);
+    console.log(`- Active key being resolved: ${maskKey(RAPID_KEY)}`);
+
     const sortBy = settings['rainforest_sort_by'] || 'average_customer_reviews';
     const minRating = parseFloat(settings['rainforest_min_rating']) || 0;
     const minReviews = parseInt(settings['rainforest_min_reviews'], 10) || 0;
 
     const { category = 'bestsellers', search_term = 'tech' } = req.body;
 
-    const isMockOrEmpty = !RAINFOREST_KEY || 
-                          RAINFOREST_KEY.trim() === "" || 
-                          RAINFOREST_KEY.includes("your_") || 
-                          RAINFOREST_KEY.includes("placeholder");
+    const isMockOrEmpty = !RAPID_KEY || 
+                          RAPID_KEY.trim() === "" || 
+                          RAPID_KEY.includes("your_") || 
+                          RAPID_KEY.includes("placeholder");
 
     // Reusable AI Fallback Generator Helper
     const runAiFallbackSync = async (reasonMsg: string) => {
-      console.log(`[Rainforest AI Fallback] Generating curated suggestion feed using Gemini for query: "${search_term}"...`);
+      console.log(`[Amazon RapidAPI AI Fallback] Generating curated suggestion feed using Gemini for query: "${search_term}"...`);
       try {
         const fallbackPrompt = `You are a professional UK retail and market trend researcher. Please generate a list of 8 extremely realistic trending products that match the UK search query: "${search_term}".
         For each product, generate:
@@ -1987,7 +2063,7 @@ function startServer() {
         5. A search-centric keyword-rich Amazon OK landing link. DO NOT generate direct "/dp/ASIN" or "/gp/" urls because those are fake and result in 404s. The format MUST be exactly: "https://www.amazon.co.uk/s?k=[URL_ENCODED_KEYWORDS]" where the keywords are 3-4 descriptive words from your generated title.
         6. A strong trend reason detailing its seasonal SEO popularity in Google.co.uk logs.
 
-        Output strictly as a JSON array of objects with the exact keys:
+        Output strictly as a JSON object containing a "products" property which is an array of objects with the exact keys:
         - title: string
         - description: string
         - price: number
@@ -2009,8 +2085,11 @@ function startServer() {
         const cleanedText = text.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
         let generatedItems = JSON.parse(cleanedText);
         if (!Array.isArray(generatedItems)) {
-          if (generatedItems.products && Array.isArray(generatedItems.products)) {
-            generatedItems = generatedItems.products;
+          const arrayKey = Object.keys(generatedItems).find(k => Array.isArray(generatedItems[k]));
+          if (arrayKey) {
+            generatedItems = generatedItems[arrayKey];
+          } else if (generatedItems.title) {
+            generatedItems = [generatedItems];
           } else {
             throw new Error("Incorrect JSON schema returned.");
           }
@@ -2020,8 +2099,6 @@ function startServer() {
         for (const item of generatedItems) {
           if (!item.title) continue;
           
-          // Clean up the link to guarantee NO 404 pages!
-          // If the link contains /dp/ or /gp/ or doesn't start with http, we override it to a 100% working search query link.
           let safeLink = item.link;
           if (!safeLink || safeLink.includes("/dp/") || safeLink.includes("/gp/") || !safeLink.startsWith("http")) {
             safeLink = `https://www.amazon.co.uk/s?k=${encodeURIComponent(item.title)}`;
@@ -2050,69 +2127,110 @@ function startServer() {
           count: imported 
         });
       } catch (aiErr: any) {
-        console.error("[Rainforest Fallback AI Error]", aiErr.message);
+        console.error("[Amazon RapidAPI Fallback AI Error]", aiErr.message);
         return res.status(500).json({ error: "Failed to gather products from Amazon UK and the AI generator fallback also timed out." });
       }
     };
 
+    const currentCount = parseInt(settings['amazon_rapidapi_request_count'] || '0') || 0;
+    const limitMax = parseInt(settings['amazon_rapidapi_request_limit'] || '1000') || 1000;
+
+    if (currentCount >= limitMax) {
+      console.warn(`[Amazon RapidAPI] Rate Limit Engaged: Count ${currentCount} exceeds configured limit ${limitMax}. Activating Fallback...`);
+      return await runAiFallbackSync(`Active Rate Limit Block: You have initiated ${currentCount} requests out of your allowed ${limitMax} RapidAPI queries.`);
+    }
+
     if (isMockOrEmpty) {
-       return await runAiFallbackSync("Rainforest API key is currently unconfigured or a placeholder");
+       return await runAiFallbackSync("Amazon RapidAPI key is currently unconfigured or a placeholder");
     }
 
     try {
-      console.log(`[Rainforest AI] Triggering live Amazon UK hunt for query: "${search_term}" with Sort: "${sortBy}", Min Rating: "${minRating}", Min Reviews: "${minReviews}"...`);
+      console.log(`[Amazon RapidAPI] Triggering live Amazon UK hunt via RapidAPI for query: "${search_term}" with Sort: "${sortBy}", Min Rating: "${minRating}", Min Reviews: "${minReviews}"...`);
       
+      let mappedSortBy = 'RELEVANCE';
+      if (sortBy) {
+        if (sortBy === 'price_low_to_high') {
+          mappedSortBy = 'LOWEST_PRICE';
+        } else if (sortBy === 'price_high_to_low') {
+          mappedSortBy = 'HIGHEST_PRICE';
+        } else if (sortBy === 'average_customer_reviews' || sortBy === 'review_rank' || sortBy === 'rating') {
+          mappedSortBy = 'REVIEWS';
+        } else if (sortBy === 'newest') {
+          mappedSortBy = 'NEWEST';
+        } else if (sortBy === 'bestsellers' || sortBy === 'best_sellers') {
+          mappedSortBy = 'BEST_SELLERS';
+        }
+      }
+
       let rfResponse;
       try {
-        const params: any = {
-          api_key: RAINFOREST_KEY,
-          type: 'search',
-          amazon_domain: 'amazon.co.uk',
-          search_term: search_term
-        };
-        
-        // Rainforest API uses 'review_rank' for rating-based sorting. If specified, map it properly!
-        if (sortBy && sortBy !== 'featured') {
-          params.sort_by = (sortBy === 'average_customer_reviews') ? 'review_rank' : sortBy;
-        }
-
-        console.log(`[Rainforest AI] Dispatching primary search request to Rainforest (Sort: ${params.sort_by || 'Default'})...`);
-        rfResponse = await axios.get('https://api.rainforestapi.com/request', {
-          params,
-          timeout: 25000
-        });
-      } catch (firstErr: any) {
-        console.warn(`[Rainforest AI] Primary request failed (Status: ${firstErr.response?.status || 'Unknown'}, Msg: ${firstErr.message}).`);
-        if (firstErr.response?.data) {
-          console.warn("[Rainforest AI Error Payload]", JSON.stringify(firstErr.response.data));
-        }
-
-        console.log(`[Rainforest AI] Initiating self-healing retry with default Amazon relevance sorting (omitting sort_by)...`);
-        rfResponse = await axios.get('https://api.rainforestapi.com/request', {
+        console.log(`[Amazon RapidAPI] Dispatching primary search request to RapidAPI...`);
+        rfResponse = await axios.get('https://real-time-amazon-data.p.rapidapi.com/search', {
           params: {
-            api_key: RAINFOREST_KEY,
-            type: 'search',
-            amazon_domain: 'amazon.co.uk',
-            search_term: search_term
+            query: search_term,
+            page: '1',
+            country: 'GB',
+            sort_by: mappedSortBy,
+            product_condition: 'ALL'
+          },
+          headers: {
+            'x-rapidapi-key': RAPID_KEY,
+            'x-rapidapi-host': 'real-time-amazon-data.p.rapidapi.com'
           },
           timeout: 25000
         });
+
+        // Increment Request Count
+        const newCount = currentCount + 1;
+        await db.execute({
+          sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES ('amazon_rapidapi_request_count', ?)",
+          args: [String(newCount)]
+        });
+      } catch (firstErr: any) {
+        console.warn(`[Amazon RapidAPI] Primary request failed (Status: ${firstErr.response?.status || 'Unknown'}, Msg: ${firstErr.message}).`);
+        if (firstErr.response?.data) {
+          console.warn("[Amazon RapidAPI Error Payload]", JSON.stringify(firstErr.response.data));
+        }
+
+        console.log(`[Amazon RapidAPI] Initiating self-healing retry with default Amazon relevance sorting...`);
+        rfResponse = await axios.get('https://real-time-amazon-data.p.rapidapi.com/search', {
+          params: {
+            query: search_term,
+            page: '1',
+            country: 'GB'
+          },
+          headers: {
+            'x-rapidapi-key': RAPID_KEY,
+            'x-rapidapi-host': 'real-time-amazon-data.p.rapidapi.com'
+          },
+          timeout: 25000
+        });
+
+        // Increment Request Count (on retry as well)
+        const newCount = currentCount + 1;
+        await db.execute({
+          sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES ('amazon_rapidapi_request_count', ?)",
+          args: [String(newCount)]
+        });
       }
 
-      const rawItems = (rfResponse.data.search_results || []);
+      const search_data = rfResponse.data?.data;
+      const rawItems = search_data?.products || rfResponse.data?.products || [];
       
       // Filter items according to the admin-defined rules (checking minimum ratings & reviews if specified)
       const items = rawItems.filter((i: any) => {
-        if (!i.title || !i.asin) return false;
+        const title = i.product_title || i.title;
+        const asin = i.asin || i.product_asin;
+        if (!title || !asin) return false;
 
         // Custom filter logic
         if (minRating > 0) {
-          const itemRating = parseFloat(i.rating) || 0;
+          const itemRating = parseFloat(i.product_star_rating || i.rating || i.product_rating) || 0;
           if (itemRating < minRating) return false;
         }
 
         if (minReviews > 0) {
-          const itemReviews = parseInt(i.ratings_total) || 0;
+          const itemReviews = parseInt(i.product_num_ratings || i.ratings_total || i.num_ratings || i.reviews_count) || 0;
           if (itemReviews < minReviews) return false;
         }
 
@@ -2120,68 +2238,88 @@ function startServer() {
       });
       
       if (items.length === 0) {
-        console.log(`[Rainforest AI] API request returned 0 items after settings filtering. Activating high-fidelity AI Fallback...`);
-        return await runAiFallbackSync("Amazon API returned empty results or all items were filtered out based on minimum thresholds");
+        console.log(`[Amazon RapidAPI] API request returned 0 items after settings filtering. Activating high-fidelity AI Fallback...`);
+        return await runAiFallbackSync("Amazon RapidAPI returned empty results or all items were filtered out based on minimum thresholds");
       }
 
-      console.log(`[Rainforest AI] Discovered ${items.length} live products under '${search_term}' in Amazon UK.`);
+      console.log(`[Amazon RapidAPI] Discovered ${items.length} live products under '${search_term}' in Amazon UK via RapidAPI.`);
 
       let imported = 0;
-      // Truncate to top 5 to avoid timeouts and rate limits when fetching detailed media
-      const topItems = items.slice(0, 5);
+      // Dynamic import limit controlled by setting (defaults to 15) or manual POST parameter
+      const configMax = parseInt(settings['amazon_rapidapi_max_products'] || '15') || 15;
+      const targetLimit = parseInt(String(req.body.limit)) || configMax;
+      const topItems = items.slice(0, targetLimit);
 
       for (const item of topItems) {
-        if (!item.title || !item.asin) continue;
+        const title = item.product_title || item.title;
+        const asin = item.asin || item.product_asin;
+        if (!title || !asin) continue;
 
-        const ratingVal = item.rating || 4.5;
-        const totalRatings = item.ratings_total || 42;
-        const finalPrice = item.price?.value || (typeof item.price === 'number' ? item.price : 19.99);
+        const ratingVal = parseFloat(item.product_star_rating || item.rating || item.product_rating) || 4.5;
+        const totalRatings = parseInt(item.product_num_ratings || item.ratings_total || item.num_ratings || item.reviews_count) || 42;
 
-        // Sanitize link formats (handling relative paths returned by crawls)
-        let originalLink = item.link || "";
+        let finalPrice = 19.99;
+        if (typeof item.product_price === 'number') {
+          finalPrice = item.product_price;
+        } else if (item.price) {
+          if (typeof item.price === 'number') {
+            finalPrice = item.price;
+          } else if (item.price.value) {
+            finalPrice = parseFloat(item.price.value) || 19.99;
+          } else {
+            finalPrice = parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 19.99;
+          }
+        } else if (item.product_price) {
+          finalPrice = parseFloat(String(item.product_price).replace(/[^\d.]/g, '')) || 19.99;
+        }
+
+        // Sanitize link formats
+        let originalLink = item.product_url || item.url || item.link || "";
         if (originalLink.startsWith("/")) {
           originalLink = `https://www.amazon.co.uk${originalLink}`;
         }
         if (!originalLink) {
-          originalLink = item.asin ? `https://www.amazon.co.uk/dp/${item.asin}` : `https://www.amazon.co.uk/s?k=${encodeURIComponent(item.title)}`;
+          originalLink = asin ? `https://www.amazon.co.uk/dp/${asin}` : `https://www.amazon.co.uk/s?k=${encodeURIComponent(title)}`;
         }
 
-        // Fetch detailed media from Rainforest API
-        let mainCover = item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=500";
+        // Fetch detailed media from RapidAPI if key is active
+        let mainCover = item.product_photo || item.photo || item.image || item.image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=500";
         let additionalImagesStr = "";
 
-        if (RAINFOREST_KEY && RAINFOREST_KEY.trim() !== "mock") {
+        if (RAPID_KEY && RAPID_KEY.trim() !== "" && !isMockOrEmpty) {
           try {
-            console.log(`[Rainforest AI] Fetching media details for ASIN: ${item.asin}`);
-            const prodRes = await axios.get('https://api.rainforestapi.com/request', {
+            console.log(`[Amazon RapidAPI] Fetching media details for ASIN: ${asin}`);
+            const prodRes = await axios.get('https://real-time-amazon-data.p.rapidapi.com/product-details', {
               params: {
-                api_key: RAINFOREST_KEY,
-                type: 'product',
-                amazon_domain: 'amazon.co.uk',
-                asin: item.asin
+                asin: asin,
+                country: 'GB'
+              },
+              headers: {
+                'x-rapidapi-key': RAPID_KEY,
+                'x-rapidapi-host': 'real-time-amazon-data.p.rapidapi.com'
               },
               timeout: 10000
             });
-            const productData = prodRes.data.product;
+            const productData = prodRes.data?.data || prodRes.data?.product;
             if (productData) {
-              if (productData.main_image && productData.main_image.link) {
-                mainCover = productData.main_image.link;
+              if (productData.product_photo || (productData.main_image && productData.main_image.link)) {
+                mainCover = productData.product_photo || productData.main_image.link;
               }
               const mediaArr: string[] = [];
-              if (productData.images && Array.isArray(productData.images)) {
+              if (productData.product_photos && Array.isArray(productData.product_photos)) {
+                productData.product_photos.forEach((im: any) => {
+                  const link = typeof im === 'string' ? im : im.link;
+                  if (link && link !== mainCover) mediaArr.push(link);
+                });
+              } else if (productData.images && Array.isArray(productData.images)) {
                 productData.images.forEach((im: any) => {
                   if (im.link && im.link !== mainCover) mediaArr.push(im.link);
-                });
-              }
-              if (productData.videos && Array.isArray(productData.videos)) {
-                productData.videos.forEach((vid: any) => {
-                  if (vid.link) mediaArr.push(vid.link);
                 });
               }
               additionalImagesStr = mediaArr.join(',');
             }
           } catch (mErr: any) {
-            console.warn(`[Rainforest AI] Failed getting detailed media for ${item.asin}`, mErr.message);
+            console.warn(`[Amazon RapidAPI] Failed getting detailed media for ${asin}`, mErr.message);
           }
         }
 
@@ -2190,23 +2328,216 @@ function startServer() {
                 (suggested_title, suggested_description, price, category, image_url, additional_images, trend_reason, source_or_amazon_link) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
-            item.title,
+            title,
             `Top Rated UK Best Seller: Discover this highly popular and deeply reviewed item in our ${search_term} collection. Quality rated ${ratingVal} stars by ${totalRatings} verified shoppers. Strongly recommended in the UK market.`,
             finalPrice,
             search_term,
             mainCover,
             additionalImagesStr,
-            `Live Rainforest Market Hunt: Strong SEO indexing & exceptional user review metrics for '${search_term}'. Discovered on ${new Date().toLocaleDateString()}.`,
+            `Live Amazon RapidAPI Market Hunt: Strong SEO indexing & exceptional user review metrics for '${search_term}'. Discovered on ${new Date().toLocaleDateString()}.`,
             originalLink
           ]
         });
         imported++;
       }
 
-      res.json({ success: true, message: `Discovered and imported ${imported} live UK suggestions from Amazon databases.`, count: imported });
+      res.json({ success: true, message: `Discovered and imported ${imported} live UK suggestions from Amazon databases via RapidAPI.`, count: imported });
     } catch (err: any) {
-      console.error("[Rainforest AI] API Error - triggering automatic AI fallback handler. Reason:", err.message);
+      console.error("[Amazon RapidAPI] API Error - triggering automatic AI fallback handler. Reason:", err.message);
       return await runAiFallbackSync(`Amazon Direct API was unreached (using fallback engine)`);
+    }
+  });
+
+  // Live Amazon Search for both User and Admin (roles determine behavior & limit size)
+  app.post('/api/products/live-amazon-search', async (req, res) => {
+    const { search_term, role } = req.body;
+    if (!search_term) {
+      return res.status(400).json({ error: "search_term is required" });
+    }
+
+    try {
+      // Fetch all global settings to retrieve API parameters and filters
+      const settingsRows = await db.execute("SELECT key, value FROM global_settings");
+      const settings: Record<string, string> = {};
+      settingsRows.rows.forEach((row: any) => {
+        settings[row.key] = row.value;
+      });
+
+      const configKey = (settings['amazon_rapidapi_key'] || "").trim();
+      const envKey = (process.env.AMAZON_RAPIDAPI_KEY || "").trim();
+      const RAPID_KEY = configKey || envKey;
+
+      const isMockOrEmpty = !RAPID_KEY || RAPID_KEY === "be4073b80fmshb89af07ca81c257p1a3691jsne299b0d2e254" || RAPID_KEY.startsWith("your_") || RAPID_KEY.startsWith("Paste ");
+
+      const currentCount = parseInt(settings['amazon_rapidapi_request_count'] || '0') || 0;
+      const limitMax = parseInt(settings['amazon_rapidapi_request_limit'] || '1000') || 1000;
+
+      // Rate limit check
+      if (currentCount >= limitMax) {
+        return res.json({
+          success: false,
+          error: "API Request Quota reached",
+          isQuotaExceeded: true,
+          products: [
+            {
+              id: "fallback-1",
+              name: `Premium ${search_term} Smart Tracker Selection`,
+              price: 34.99,
+              rating: 4.8,
+              reviews_count: 320,
+              image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400",
+              link: "https://www.amazon.co.uk",
+              description: `A stunning and top-rated curation for your search of '${search_term}'. Hand-vetted and selected to yield optimized prices and high conversion metrics across the UK.`
+            }
+          ]
+        });
+      }
+
+      const minRating = parseFloat(settings['rainforest_min_rating'] || '0.0') || 0.0;
+      const minReviews = parseInt(settings['rainforest_min_reviews'] || '0') || 0;
+
+      if (isMockOrEmpty) {
+        // Fallback mockup items
+        return res.json({
+          success: true,
+          isMock: true,
+          products: [
+            {
+              id: "mock-1",
+              name: `Amazon UK Best Seller: ${search_term} Premium Edition`,
+              price: 24.99,
+              rating: 4.9,
+              reviews_count: 512,
+              image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400",
+              link: `https://www.amazon.co.uk/s?k=${encodeURIComponent(search_term)}`,
+              description: `Voted top 10 in Amazon UK ${search_term} categories. High material excellence and prime fast delivery markers.`
+            },
+            {
+              id: "mock-2",
+              name: `${search_term} Eco-Friendly Series UK`,
+              price: 18.95,
+              rating: 4.7,
+              reviews_count: 140,
+              image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400",
+              link: `https://www.amazon.co.uk/s?k=${encodeURIComponent(search_term)}`,
+              description: `Sustainable and highly efficient design with pristine active consumer ratings. UK local dispatch certified.`
+            }
+          ]
+        });
+      }
+
+      console.log(`[Amazon User Live Lookup] Searching for "${search_term}" (Role: ${role})`);
+
+      // 1 request to Amazon search
+      const rfResponse = await axios.get('https://real-time-amazon-data.p.rapidapi.com/search', {
+        params: {
+          query: search_term,
+          page: '1',
+          country: 'GB'
+        },
+        headers: {
+          'x-rapidapi-key': RAPID_KEY,
+          'x-rapidapi-host': 'real-time-amazon-data.p.rapidapi.com'
+        },
+        timeout: 20000
+      });
+
+      // Increment Request Count
+      const newCount = currentCount + 1;
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES ('amazon_rapidapi_request_count', ?)",
+        args: [String(newCount)]
+      });
+
+      const search_data = rfResponse.data?.data;
+      const rawItems = search_data?.products || rfResponse.data?.products || [];
+
+      const filtered = rawItems.filter((i: any) => {
+        const title = i.product_title || i.title;
+        const asin = i.asin || i.product_asin;
+        if (!title || !asin) return false;
+        
+        if (minRating > 0) {
+          const itemRating = parseFloat(i.product_star_rating || i.rating) || 0;
+          if (itemRating < minRating) return false;
+        }
+        if (minReviews > 0) {
+          const itemReviews = parseInt(i.product_num_ratings || i.reviews_count) || 0;
+          if (itemReviews < minReviews) return false;
+        }
+        return true;
+      });
+
+      // Show based on roles: Admins can get up to amazon_rapidapi_max_products, users get up to 5 items to protect the API quota
+      const userMax = role === 'admin' ? (parseInt(settings['amazon_rapidapi_max_products'] || '15') || 15) : 5;
+      const slicedItems = filtered.slice(0, userMax);
+
+      const returnedProducts: any[] = [];
+
+      for (const item of slicedItems) {
+        const title = item.product_title || item.title;
+        const asin = item.asin || item.product_asin;
+        
+        let finalPrice = 19.99;
+        if (typeof item.product_price === 'number') {
+          finalPrice = item.product_price;
+        } else if (item.price) {
+          if (typeof item.price === 'number') finalPrice = item.price;
+          else if (item.price.value) finalPrice = parseFloat(item.price.value) || 19.99;
+          else finalPrice = parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 19.99;
+        } else if (item.product_price) {
+          finalPrice = parseFloat(String(item.product_price).replace(/[^\d.]/g, '')) || 19.99;
+        }
+
+        let linkUrl = item.product_url || item.url || item.link || "";
+        if (linkUrl.startsWith("/")) {
+          linkUrl = `https://www.amazon.co.uk${linkUrl}`;
+        }
+        if (!linkUrl) {
+          linkUrl = `https://www.amazon.co.uk/dp/${asin}`;
+        }
+
+        const pic = item.product_photo || item.photo || item.image || item.image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400";
+        const ratVal = parseFloat(item.product_star_rating || item.rating) || 4.7;
+        const revCount = parseInt(item.product_num_ratings || item.reviews_count) || 42;
+
+        returnedProducts.push({
+          id: `live-${asin}`,
+          asin: asin,
+          name: title,
+          price: finalPrice,
+          rating: ratVal,
+          reviews_count: revCount,
+          image: pic,
+          link: linkUrl,
+          description: `Prime Hand-Selected: Premium discovered match in UK. Assured durability, fast-fulfill logistics.`
+        });
+
+        // Save as pending trend suggestion, marked as User Scan
+        await db.execute({
+          sql: `INSERT INTO ai_trend_suggestions 
+                (suggested_title, suggested_description, price, category, image_url, additional_images, trend_reason, source_or_amazon_link) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            title,
+            `Live user search discovery for: '${search_term}'. Class-leading rating of ${ratVal} stars with ${revCount} UK reviews.`,
+            finalPrice,
+            search_term,
+            pic,
+            "",
+            `[User Look-Up Scan] Real-Time Scraped via RapidAPI. Requested by role='${role || 'user'}'. Ready for Admin mapping approval.`,
+            linkUrl
+          ]
+        });
+      }
+
+      res.json({
+        success: true,
+        products: returnedProducts
+      });
+    } catch (e: any) {
+      console.error("[Amazon User Live Search Error]", e.message);
+      res.status(500).json({ error: "Failed to search Amazon Live. RapidAPI might be throttling or configuration is empty." });
     }
   });
 
@@ -4959,7 +5290,11 @@ Our system statistics are:
 Synthesise daily activity trends, category-level engagement statistics, and conversion ratios for the past 7 days.
 Return a valid JSON report containing formatted charts statistics. Your structure MUST follow this JSON schema EXACTLY so we can bind it to Recharts components (AreaChart, BarChart, LineChart) directly.
 CRITICAL MANDATORY INSTRUCTIONS: 
-You must ONLY output valid JSON. Do NOT output mathematical expressions like "12/20*100" or fractions in the values. Only output final calculated literal numbers (integers or primitive floats, e.g. 60 or 2.4). All "rate", "views", "clicks", "wishlist", and "value" fields MUST be strictly primitive JSON numbers. NEVER output mathematical operators (+, -, *, /) inside numbers!
+1. You must ONLY output valid JSON. No trailing commas, no backticks, no markdown wrapper around the JSON.
+2. Do NOT output mathematical expressions like "12/20*100" or fractions in the values. Only output final calculated literal numbers (e.g. 60 or 2.4).
+3. All "rate", "views", "clicks", "wishlist", and "value" fields MUST be strictly primitive JSON numbers. 
+4. DO NOT OUTPUT "null" OR "undefined" VALUES! Even if data is missing or zero, use numeric 0 (e.g., "value": 0, "views": 0, "clicks": 0, "rate": 0.0).
+5. DO NOT output partial object values or plain commas without key names! (e.g. { "name": "Yesterday", null, null, null } is STRICTLY forbidden and will crash the engine). Every element must be fully formed with keys and numeric values.
 
 {
   "performanceNarrative": "A clean 3-bullet insight reporting layout summarizing product conversion highlights and actions.",
