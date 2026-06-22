@@ -937,7 +937,7 @@ export default function UserDashboard() {
 
       {/* Main Content */}
       <main
-        className={`mx-auto w-full flex flex-col md:flex-row gap-8 mb-12 relative z-0 ${isHomeMode ? "px-0" : "max-w-[1800px] px-4 sm:px-6 lg:px-10"}`}
+        className={`mx-auto w-full flex flex-col md:flex-row gap-6 mb-8 relative z-0 ${isHomeMode ? "px-0" : "max-w-[1800px] px-4 sm:px-6 lg:px-10"}`}
       >
         {/* Sidebar Filters - Desktop (Sticky Glass Card) & Mobile (Collapsible Glass Bar) */}
         {!isHomeMode && (
@@ -1150,22 +1150,22 @@ export default function UserDashboard() {
               </div>
 
               {/* Curated Editorial Welcome Header */}
-              <div className="w-full flex justify-center pb-10 sm:pb-12 md:pb-14 pt-4 relative z-20">
-                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8 text-center bg-white/60 backdrop-blur-3xl mx-4 sm:mx-8 rounded-3xl py-12 border border-white/50 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] transform -translate-y-12">
-                  <span className="text-xs font-bold tracking-widest text-[#9A7F56] uppercase mb-3.5 block">
+              <div className="w-full flex justify-center pb-8 sm:pb-10 pt-4 relative z-20">
+                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8 text-center bg-white/60 backdrop-blur-3xl mx-4 sm:mx-8 rounded-3xl py-8 border border-white/50 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] transform -translate-y-8">
+                  <span className="text-xs font-bold tracking-widest text-[#9A7F56] uppercase mb-2 block">
                     Hand-Selected Elite Curation
                   </span>
-                  <h1 className="text-3xl sm:text-4.5xl font-serif font-black text-slate-900 mb-6 tracking-tight leading-tight max-w-4xl mx-auto">
+                  <h1 className="text-3xl sm:text-4.5xl font-serif font-black text-slate-900 mb-4 tracking-tight leading-tight max-w-4xl mx-auto">
                     {userName && userName !== 'Guest' 
                       ? `Welcome back, ${userName}! Discover hand-crafted essentials selected for you.` 
                       : getDailyGreeting()}
                   </h1>
-                  <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
+                  <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto mb-6 leading-relaxed font-medium">
                     Explore high-end departments, premium UK shopping finds, and editor's favorite picks curated daily by our advanced machine-learning personalization engine.
                   </p>
                   
                   {/* High-End Circular Department Selector */}
-                  <div className="flex overflow-x-auto gap-6 sm:gap-8 justify-start md:justify-center pb-6 scrollbar-hide py-3 snap-x">
+                  <div className="flex overflow-x-auto gap-4 sm:gap-6 justify-start md:justify-center pb-4 scrollbar-hide py-2 snap-x">
                     {dynamicCategories.filter((c) => c !== "All Categories").slice(0, 6).map((category, idx) => {
                       const catImage = products.find(p => p.category === category)?.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=200";
                       
@@ -1193,16 +1193,16 @@ export default function UserDashboard() {
               </div>
 
               {/* Main Content Area */}
-              <div className="max-w-[1400px] mx-auto w-full px-3 sm:px-6 md:px-8 relative flex flex-col gap-8 md:gap-12">
+              <div className="max-w-[1400px] mx-auto w-full px-0 relative flex flex-col gap-6 md:gap-8">
                 {/* Horizontal Sliders for Categories */}
                 {dynamicCategories
                   .filter((c) => c !== "All Categories")
                   .map((cat) => (
                     <div
                       key={cat}
-                      className="bg-white/95 p-6 sm:p-8 rounded-3xl shadow-xs border border-[#E9E5DE]/80"
+                      className="w-full"
                     >
-                      <div className="flex justify-between items-end mb-6 pb-4 border-b border-[#FAF9F6]">
+                      <div className="flex justify-between items-end mb-4 pb-2 border-b border-[#FAF9F6]">
                         <div>
                           <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#9A7F56] bg-amber-50 border border-amber-200/40 px-2.5 py-0.5 rounded-full mb-1 inline-block">
                             Department Curation
@@ -1224,7 +1224,7 @@ export default function UserDashboard() {
                         </button>
                       </div>
                       
-                      <div className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide snap-x snap-mandatory py-1">
+                      <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide snap-x snap-mandatory py-1">
                         {products
                           .filter((p) => p.category === cat)
                           .map((product) => (
