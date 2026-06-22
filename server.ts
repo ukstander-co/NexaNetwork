@@ -3305,7 +3305,7 @@ CORE INSTRUCTIONS:
       const products = await getCachedEnrichedProducts();
       
       const itemsXml = products.slice(0, 50).map((product: any) => {
-        const productUrl = product.affiliate_link || `https://ukstander.shop/product/${product.id}`;
+        const productUrl = `https://ukstander.shop/product/${product.id}`;
         const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
         const pubDate = product.created_at ? new Date(product.created_at).toUTCString() : new Date().toUTCString();
         const desc = product.ai_description || `Grab this amazing trending UK product. Price: £${product.price}`;
