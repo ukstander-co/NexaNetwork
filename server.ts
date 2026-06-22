@@ -3380,12 +3380,46 @@ CORE INSTRUCTIONS:
       
       const itemsXml = products.map((product: any) => {
         const productUrl = `https://ukstander.shop/product/${product.id}`;
-        const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        
+        let imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        
+        // Dynamic image upscaling for Unsplash
+        if (imageUrl.includes('unsplash.com')) {
+          imageUrl = imageUrl.replace(/w=\d+/, 'w=1000').replace(/h=\d+/, 'h=1000');
+          if (!imageUrl.includes('w=')) {
+            imageUrl += (imageUrl.includes('?') ? '&' : '?') + 'w=1000&h=1000&fit=crop';
+          }
+        }
+        // Dynamic image upscaling for Amazon images (removes the scaling tags like ._SL150_, ._AC_UL320_ etc.)
+        if (imageUrl.includes('images-amazon.com') || imageUrl.includes('media-amazon.com')) {
+          imageUrl = imageUrl.replace(/\._AC_[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SL[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SS[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SR[a-zA-Z0-9_,]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SX[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SY[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+        }
+
+        const rawTitle = product.ai_title || 'Premium UK Product';
+        
+        // Dynamic promotion and fluff sanitizer for product titles to comply with GMC rules
+        let title = rawTitle
+          .replace(/\b(buy now|best uk selling|uk selling|best seller|best selling|free delivery|free shipping|top rated|promo|discount|sale|with free delivery|with free shipping|cheap|best|exclusive|guaranteed|hot selling|top seller)\b/gi, '')
+          .replace(/\s*:\s*/g, ' ')
+          .replace(/\s*-\s*/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        title = title.replace(/^[^a-zA-Z0-9]+/, '');
+        if (title.length < 5) {
+          title = rawTitle; // fallback if we stripped too much
+        } else {
+          title = title.charAt(0).toUpperCase() + title.slice(1);
+        }
+
         const description = product.ai_description || `Premium quality ${product.category || 'curation'} item handpicked for UKStander shoppers. Great value and top customer reviews.`;
-        const title = product.ai_title || 'Premium UK Product';
         const categoryUpper = (product.category || '').toUpperCase();
         
-        // Extract brand name if possible, or default to UKStander
+        // Brand extraction with custom support for standard product listing brands
         let brand = 'UKStander';
         const titleLower = title.toLowerCase();
         if (titleLower.includes('dyson')) brand = 'Dyson';
@@ -3397,16 +3431,45 @@ CORE INSTRUCTIONS:
         else if (titleLower.includes('cerave')) brand = 'CeraVe';
         else if (titleLower.includes('logitech')) brand = 'Logitech';
         else if (titleLower.includes('roka')) brand = 'ROKA London';
+        else if (titleLower.includes('axoe')) brand = 'AXOE';
+        else if (titleLower.includes('miusol')) brand = 'MIUSOL';
+        else if (titleLower.includes('lorenz')) brand = 'Lorenz';
+        else if (titleLower.includes('mabel')) brand = 'Mabel London';
+        else if (titleLower.includes('burberry')) brand = 'Burberry';
+        else if (titleLower.includes('aileese')) brand = 'Aileese';
+        else if (titleLower.includes('radley')) brand = 'Radley London';
+        else if (titleLower.includes('miss lulu')) brand = 'Miss Lulu';
+        else if (titleLower.includes('nnjxd')) brand = 'NNJXD';
+        else if (titleLower.includes('banned')) brand = 'Banned Retro';
+        else if (titleLower.includes('tnqan')) brand = 'TNQAN';
+        else if (titleLower.includes('wise owl')) brand = 'Wise Owl';
+        else if (titleLower.includes('jw pei')) brand = 'JW PEI';
+        else if (titleLower.includes('jinalexia')) brand = 'JINALEXIA';
 
-        // Additional Image Links
+        // Additional Image Links upscaled
         let additionalImagesXml = '';
         if (product.additional_images) {
           try {
             const parsed = JSON.parse(product.additional_images);
             if (Array.isArray(parsed)) {
-              additionalImagesXml = parsed.slice(0, 5).map((imgUrl: string) => 
-                `      <g:additional_image_link>${escapeXml(imgUrl)}</g:additional_image_link>`
-              ).join('\n');
+              additionalImagesXml = parsed.slice(0, 5).map((imgUrl: string) => {
+                let cleanImg = imgUrl;
+                if (cleanImg.includes('unsplash.com')) {
+                  cleanImg = cleanImg.replace(/w=\d+/, 'w=1000').replace(/h=\d+/, 'h=1000');
+                  if (!cleanImg.includes('w=')) {
+                    cleanImg += (cleanImg.includes('?') ? '&' : '?') + 'w=1000&h=1000&fit=crop';
+                  }
+                }
+                if (cleanImg.includes('images-amazon.com') || cleanImg.includes('media-amazon.com')) {
+                  cleanImg = cleanImg.replace(/\._AC_[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+                  cleanImg = cleanImg.replace(/\._SL[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+                  cleanImg = cleanImg.replace(/\._SS[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+                  cleanImg = cleanImg.replace(/\._SR[a-zA-Z0-9_,]+(?=\.[a-z]+$)/i, '');
+                  cleanImg = cleanImg.replace(/\._SX[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+                  cleanImg = cleanImg.replace(/\._SY[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+                }
+                return `      <g:additional_image_link>${escapeXml(cleanImg)}</g:additional_image_link>`;
+              }).join('\n');
             }
           } catch(err) {}
         }
@@ -3415,9 +3478,17 @@ CORE INSTRUCTIONS:
         let googleProductCategory = 'Apparel & Accessories';
         const cLower = (product.category || '').toLowerCase();
         const dLower = description.toLowerCase();
-        if (cLower.includes('bag') || cLower.includes('accessory') || titleLower.includes('bag') || titleLower.includes('backpack') || titleLower.includes('crossbody') || titleLower.includes('wallet')) {
+        const searchPool = `${titleLower} ${dLower}`;
+        
+        if (titleLower.includes('wallet') || titleLower.includes('purse')) {
+          googleProductCategory = 'Apparel & Accessories > Handbags, Wallets & Cases > Wallets & Money Clips';
+        } else if (titleLower.includes('backpack')) {
+          googleProductCategory = 'Apparel & Accessories > Handbags, Wallets & Cases > Backpacks';
+        } else if (cLower.includes('bag') || titleLower.includes('bag') || titleLower.includes('crossbody') || titleLower.includes('tote')) {
           googleProductCategory = 'Apparel & Accessories > Handbags, Wallets & Cases > Handbags';
-        } else if (cLower.includes('clothing') || cLower.includes('apparel') || cLower.includes('fashion') || titleLower.includes('shirt') || titleLower.includes('dress') || titleLower.includes('jacket') || titleLower.includes('coat') || titleLower.includes('socks')) {
+        } else if (titleLower.includes('dress') || titleLower.includes('prom') || titleLower.includes('gown')) {
+          googleProductCategory = 'Apparel & Accessories > Clothing > Dresses';
+        } else if (cLower.includes('clothing') || cLower.includes('apparel') || cLower.includes('fashion') || titleLower.includes('shirt') || titleLower.includes('jacket') || titleLower.includes('coat') || titleLower.includes('socks')) {
           googleProductCategory = 'Apparel & Accessories > Clothing';
         } else if (cLower.includes('computer') || titleLower.includes('laptop') || titleLower.includes('pc') || titleLower.includes('macbook') || titleLower.includes('keyboard') || titleLower.includes('mouse')) {
           googleProductCategory = 'Electronics > Computers';
@@ -3433,19 +3504,21 @@ CORE INSTRUCTIONS:
         let color = 'Multicolor';
         const colorsList = [
           'black', 'white', 'grey', 'gray', 'red', 'blue', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 
-          'silver', 'gold', 'navy', 'cream', 'beige', 'khaki', 'olive', 'teal', 'magenta', 'charcoal', 'maroon'
+          'silver', 'gold', 'navy', 'cream', 'beige', 'khaki', 'olive', 'teal', 'magenta', 'charcoal', 'maroon',
+          'floral', 'multi', 'multicolor', 'tan', 'camel', 'wine', 'burgundy', 'rust', 'peach', 'coral'
         ];
-        const searchPool = `${titleLower} ${dLower}`;
         for (const possibleColor of colorsList) {
-          if (searchPool.includes(possibleColor)) {
+          const regex = new RegExp(`\\b${possibleColor}\\b`, 'i');
+          if (searchPool.match(regex)) {
             color = possibleColor.charAt(0).toUpperCase() + possibleColor.slice(1);
+            if (color === 'Multi') color = 'Multicolor';
             break;
           }
         }
 
         // 3. Extract Gender
         let gender = 'unisex';
-        if (searchPool.includes('women') || searchPool.includes('woman') || searchPool.includes('female') || searchPool.includes('girl') || searchPool.includes('her')) {
+        if (searchPool.includes('women') || searchPool.includes('woman') || searchPool.includes('female') || searchPool.includes('girl') || searchPool.includes('her') || searchPool.includes('ladies') || searchPool.includes('lady') || searchPool.includes('dress') || searchPool.includes('purse')) {
           gender = 'female';
         } else if (searchPool.includes('men') || searchPool.includes('man') || searchPool.includes('male') || searchPool.includes('boy') || searchPool.includes('him')) {
           gender = 'male';
@@ -3460,6 +3533,23 @@ CORE INSTRUCTIONS:
         } else if (searchPool.includes('child') || searchPool.includes('kid') || searchPool.includes('children') || searchPool.includes('boy') || searchPool.includes('girl')) {
           ageGroup = 'kids';
         }
+
+        // 5. Extract Size for clothing/accessories
+        let size = '';
+        if (googleProductCategory.includes('Clothing') || googleProductCategory.includes('Apparel') || titleLower.includes('dress') || titleLower.includes('sleeves') || titleLower.includes('prom')) {
+          const sizeMatch = searchPool.match(/\b(size\s*(?:\d+|s|m|l|xl|xxl|one size|small|medium|large))\b/i);
+          if (sizeMatch) {
+            size = sizeMatch[1].toUpperCase().replace('SIZE', '').trim();
+          } else {
+            if (/\b(small|medium|large|one size)\b/i.test(searchPool)) {
+              const matchWord = searchPool.match(/\b(small|medium|large|one size)\b/i);
+              size = matchWord ? matchWord[1].toUpperCase() : 'M';
+            } else {
+              size = 'M';
+            }
+          }
+        }
+        const sizeXml = size ? `      <g:size>${escapeXml(size)}</g:size>` : '';
         
         return `
     <item>
@@ -3477,6 +3567,7 @@ CORE INSTRUCTIONS:
       <g:color>${escapeXml(color)}</g:color>
       <g:gender>${escapeXml(gender)}</g:gender>
       <g:age_group>${escapeXml(ageGroup)}</g:age_group>
+      ${sizeXml}
       <g:identifier_exists>no</g:identifier_exists>
       <g:shipping>
         <g:country>GB</g:country>
