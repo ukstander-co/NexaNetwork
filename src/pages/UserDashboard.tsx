@@ -937,7 +937,7 @@ export default function UserDashboard() {
 
       {/* Main Content */}
       <main
-        className={`mx-auto w-full p-4 md:p-6 flex flex-col md:flex-row gap-8 mb-12 relative z-0 ${isHomeMode ? "max-w-[1600px] !p-0" : "max-w-7xl"}`}
+        className={`mx-auto w-full flex flex-col md:flex-row gap-8 mb-12 relative z-0 ${isHomeMode ? "px-0" : "max-w-[1800px] px-4 sm:px-6 lg:px-10"}`}
       >
         {/* Sidebar Filters - Desktop (Sticky Glass Card) & Mobile (Collapsible Glass Bar) */}
         {!isHomeMode && (
@@ -1096,9 +1096,62 @@ export default function UserDashboard() {
         <div className={`flex-1 min-h-[500px] ${isHomeMode ? "w-full" : ""}`}>
           {isHomeMode ? (
             <div className="flex flex-col gap-12 md:gap-16 pb-20 relative bg-transparent">
+              {/* Dynamic 3D Hero Slider / Poster */}
+              <div className="w-full relative min-h-[450px] max-h-[600px] overflow-hidden group">
+                {heroSlides.map((slide, idx) => (
+                  <div
+                    key={idx}
+                    className={`absolute inset-0 transition-transform duration-1000 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${idx === currentSlide ? 'opacity-100 visible z-10 scale-100' : 'opacity-0 invisible z-0 scale-110'}`}
+                  >
+                    {/* Dark gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/50 to-transparent z-10" />
+                    <img
+                      src={slide.image}
+                      alt={slide.title.replace('<br/>', ' ')}
+                      className="w-full h-full object-cover object-center"
+                    />
+                    <div className="absolute inset-0 z-20 flex flex-col justify-center px-6 sm:px-12 md:px-24 xl:px-32 max-w-[1800px] mx-auto w-full">
+                      <div className="max-w-2xl transform transition-all duration-700 translate-y-0 opacity-100">
+                        <span className="inline-block bg-amber-500 text-white font-bold text-xs uppercase tracking-widest px-3 py-1 rounded-sm mb-4 shadow-lg shadow-amber-500/30">
+                          {slide.tag}
+                        </span>
+                        <h2 
+                          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-sans font-black text-white leading-[1.1] mb-6 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+                          dangerouslySetInnerHTML={{ __html: slide.title }}
+                        />
+                        <p className="text-lg sm:text-xl text-slate-200 mb-10 drop-shadow-md font-medium leading-relaxed max-w-xl">
+                          {slide.desc}
+                        </p>
+                        <button 
+                           onClick={() => handleHeaderSearch(slide.query, 'All Categories')}
+                           className="bg-white text-slate-900 border-none hover:bg-slate-950 hover:text-white px-8 py-4 rounded-2xl font-bold w-fit transition-all duration-300 shadow-[0_10px_40px_rgba(0,0,0,0.2)] hover:shadow-[0_15px_50px_rgba(0,0,0,0.4)] active:scale-95 flex items-center gap-3"
+                        >
+                          {slide.btn} <ArrowRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* 3D Poster overlay & fade to background */}
+                <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-[#FAF9F6] to-transparent z-20 pointer-events-none" />
+                
+                {/* Dots indicator */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-3 z-30">
+                  {heroSlides.map((_, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white w-8 shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'bg-white/50 hover:bg-white/80'}`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
               {/* Curated Editorial Welcome Header */}
-              <div className="w-full flex justify-center py-10 sm:py-12 md:py-14">
-                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8 text-center">
+              <div className="w-full flex justify-center pb-10 sm:pb-12 md:pb-14 pt-4 relative z-20">
+                <div className="max-w-[1400px] w-full px-4 sm:px-6 md:px-8 text-center bg-white/60 backdrop-blur-3xl mx-4 sm:mx-8 rounded-3xl py-12 border border-white/50 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] transform -translate-y-12">
                   <span className="text-xs font-bold tracking-widest text-[#9A7F56] uppercase mb-3.5 block">
                     Hand-Selected Elite Curation
                   </span>
@@ -1141,109 +1194,6 @@ export default function UserDashboard() {
 
               {/* Main Content Area */}
               <div className="max-w-[1400px] mx-auto w-full px-3 sm:px-6 md:px-8 relative flex flex-col gap-8 md:gap-12">
-                {/* Premium Bento Grid layout for categories/highlights */}
-                <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 pb-4 sm:pb-0 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-                  {[
-                    {
-                      title: "Top Ranked",
-                      subtitle: "See highly rated deals",
-                      bgColor: "bg-amber-50 text-amber-800 border-amber-200/50",
-                      items: [...products]
-                        .sort((a, b) => b.rating - a.rating)
-                        .slice(0, 2),
-                      action: () => {
-                        setSortBy("rating");
-                        executeSearch();
-                      },
-                    },
-                    {
-                      title: "Most Popular",
-                      subtitle: "Explore trending items",
-                      bgColor: "bg-blue-50 text-blue-800 border-blue-200/50",
-                      items: [...products]
-                        .sort((a, b) => b.reviews - a.reviews)
-                        .slice(0, 2),
-                      action: () => {
-                        setSortBy("relevance");
-                        executeSearch();
-                      },
-                    },
-                    {
-                      title: "Daily Max Visitors",
-                      subtitle: "See what others view",
-                      bgColor: "bg-emerald-50 text-emerald-800 border-emerald-200/50",
-                      items: [...products]
-                        .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
-                        .slice(0, 2),
-                      action: () => {
-                        setSortBy("clicks");
-                        executeSearch();
-                      },
-                    },
-                    {
-                      title: "Deals Under £50",
-                      subtitle: "Shop budget finds",
-                      bgColor: "bg-rose-50 text-rose-800 border-rose-200/50",
-                      items: products.filter((p) => p.price <= 50).slice(0, 2),
-                      action: () => {
-                        setMaxPrice(50);
-                        executeSearch();
-                      },
-                    },
-                  ].map((card, idx) => (
-                    <div
-                      key={idx}
-                      className="min-w-[85vw] sm:min-w-0 bg-white/95 backdrop-blur-sm p-6 rounded-3xl shadow-xs border border-[#E9E5DE]/80 hover:shadow-md hover:border-[#9A7F56]/30 -translate-y-0.5 hover:-translate-y-1.5 transition-all duration-300 cursor-pointer flex flex-col snap-center h-full group/card"
-                      onClick={card.action}
-                    >
-                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#FAF9F6]">
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                          {card.title}
-                        </h3>
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${card.bgColor} border`}>
-                          Featured
-                        </span>
-                      </div>
-                      
-                      {card.items.length >= 2 ? (
-                        <div className="grid grid-cols-2 gap-4 flex-1 mb-5">
-                          {card.items.slice(0, 2).map((item, i) => (
-                            <div
-                              key={i}
-                              className="bg-[#FAF9F6]/80 hover:bg-white hover:shadow-xs border border-transparent hover:border-[#EBE8E2] active:scale-[0.98] transition-all duration-300 rounded-2xl p-3.5 flex flex-col items-center justify-between group/item cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleProductView(item);
-                              }}
-                              title={item.name}
-                            >
-                              <div className="h-16 sm:h-20 w-full flex items-center justify-center mb-2.5 relative">
-                                <img
-                                  src={item.image}
-                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover/item:scale-105 transition-transform duration-300"
-                                  alt={item.name}
-                                />
-                              </div>
-                              <span className="text-[11px] text-slate-500 group-hover/item:text-slate-900 font-medium truncate w-full text-center tracking-tight">
-                                {item.name}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex-1 flex justify-center items-center text-slate-400 text-xs py-8 italic">
-                          Finding live curate deals...
-                        </div>
-                      )}
-                      
-                      <p className="text-[#9A7F56] group-hover/card:text-amber-900 text-xs mt-auto font-bold flex items-center gap-1.5 transition-colors pt-2 uppercase tracking-wider">
-                        {card.subtitle}{" "}
-                        <ArrowRight className="w-3.5 h-3.5 group-hover/card:translate-x-1.5 transition-transform" />
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
                 {/* Horizontal Sliders for Categories */}
                 {dynamicCategories
                   .filter((c) => c !== "All Categories")
@@ -1280,13 +1230,14 @@ export default function UserDashboard() {
                           .map((product) => (
                             <div
                               key={product.id}
-                              className="min-w-[210px] w-[210px] cursor-pointer group snap-center flex flex-col bg-[#FAF9F6]/40 hover:bg-white rounded-2xl border border-transparent hover:border-[#EBE8E2] p-3 shadow-xs hover:shadow-md transition-all duration-300"
+                              className="min-w-[210px] w-[210px] cursor-pointer group snap-center flex flex-col bg-white/60 backdrop-blur-md rounded-3xl border border-white p-3 shadow-[0_8px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:-translate-y-2 hover:bg-white transition-all duration-500 relative overflow-hidden"
                               onClick={() => handleProductView(product)}
                             >
-                              <div className="bg-white rounded-xl p-3.5 h-44 mb-3.5 flex items-center justify-center relative overflow-hidden border border-[#EBE8E2]/40">
+                              <div className="absolute inset-0 bg-gradient-to-tr from-amber-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                              <div className="bg-white rounded-2xl p-3.5 h-44 mb-3.5 flex items-center justify-center relative border border-slate-100/50 shadow-inner overflow-hidden">
                                 <img
                                   src={product.image}
-                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-all duration-300"
+                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-110 group-hover:rotate-1 transition-transform duration-700 relative z-10"
                                   alt={product.name}
                                 />
                               </div>
@@ -1401,7 +1352,7 @@ export default function UserDashboard() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 md:gap-8">
                   {filteredProducts.map((product) => (
                     <div
                       key={product.id}
