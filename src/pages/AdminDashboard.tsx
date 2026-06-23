@@ -178,6 +178,11 @@ export default function AdminDashboard() {
     rainforest_api_key: '',
     ranknibbler_api_key: '',
     pagespeed_api_key: '',
+    scraper_api_key: '',
+    zenrows_api_key: '',
+    amazon_scraper_api_key: '',
+    rapidapi_rainforest_api_key: '',
+    zenmux_api_key: '',
     rainforest_sort_by: 'average_customer_reviews',
     rainforest_min_rating: '0.0',
     rainforest_min_reviews: '0',
@@ -417,6 +422,11 @@ export default function AdminDashboard() {
           rainforest_api_key: data.rainforest_api_key || '',
           ranknibbler_api_key: data.ranknibbler_api_key || '',
           pagespeed_api_key: data.pagespeed_api_key || '',
+          scraper_api_key: data.scraper_api_key || '',
+          zenrows_api_key: data.zenrows_api_key || '',
+          amazon_scraper_api_key: data.amazon_scraper_api_key || '',
+          rapidapi_rainforest_api_key: data.rapidapi_rainforest_api_key || '',
+          zenmux_api_key: data.zenmux_api_key || '',
           rainforest_sort_by: data.rainforest_sort_by || 'average_customer_reviews',
           rainforest_min_rating: data.rainforest_min_rating || '0.0',
           rainforest_min_reviews: data.rainforest_min_reviews || '0',
@@ -1406,6 +1416,9 @@ export default function AdminDashboard() {
                           <label className="text-[10px] font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">Category Code</label>
                           <input required list="adminCategories" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" placeholder="Type or select a category" />
                           <datalist id="adminCategories">
+                            {Array.from(new Set(productsList.map(p => p.category).filter(Boolean))).map(cat => (
+                              <option key={cat as string} value={cat as string} />
+                            ))}
                             <option value="Electronics" />
                             <option value="Home & Kitchen" />
                             <option value="Computers" />
@@ -2304,6 +2317,86 @@ export default function AdminDashboard() {
                         </p>
                       </div>
 
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> ScraperAPI Key (Fallback Layer 2)
+                        </label>
+                        <input 
+                          type="password" 
+                          value={globalSettings.scraper_api_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, scraper_api_key: e.target.value })} 
+                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          placeholder="Paste your ScraperAPI key here"
+                        />
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Enter your active ScraperAPI key to act as a fallback logic when RapidAPI hits rate limits.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> ZenRows API Key (Fallback Layer 3)
+                        </label>
+                        <input 
+                          type="password" 
+                          value={globalSettings.zenrows_api_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, zenrows_api_key: e.target.value })} 
+                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          placeholder="Paste your ZenRows API key here"
+                        />
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Enter your active ZenRows API key (e.g. 2af21..) for emergency HTML scraping logic.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> Amazon Scraper API by Dulmina (Fallback Layer 4)
+                        </label>
+                        <input 
+                          type="password" 
+                          value={globalSettings.amazon_scraper_api_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, amazon_scraper_api_key: e.target.value })} 
+                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          placeholder="Paste your Amazon Scraper API RapidAPI key here"
+                        />
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Enter your RapidAPI key for Dulmina's Amazon Scraper API (e.g. a80878...) for final fallback scraping.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> Rainforest API via RapidAPI (Fallback Layer 5)
+                        </label>
+                        <input 
+                          type="password" 
+                          value={globalSettings.rapidapi_rainforest_api_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, rapidapi_rainforest_api_key: e.target.value })} 
+                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          placeholder="Paste your Rainforest RapidAPI key here"
+                        />
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Enter your RapidAPI key for Rainforest (e.g. a80878...) as the ultimate layer for product data aggregation.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-emerald-100/60 pt-3">
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> ZenMux API For AI Fallback (seo_geo_optimizer replacement)
+                        </label>
+                        <input 
+                          type="password" 
+                          value={globalSettings.zenmux_api_key} 
+                          onChange={e => setGlobalSettings({ ...globalSettings, zenmux_api_key: e.target.value })} 
+                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          placeholder="Paste your ZenMux API key here"
+                        />
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Fallback layer for AI that does SEO on our website. Uses z-ai/glm-4.7-flash-free models.
+                        </p>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-emerald-100/60 pt-3">
                         <div>
                           <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">
@@ -3137,18 +3230,24 @@ export default function AdminDashboard() {
                             <label className="block text-[10px] uppercase font-black text-slate-500 mb-1">
                               Category
                             </label>
-                            <select 
-                              value={approveForm.category} 
+                            <input
+                              list="approveCategories"
+                              value={approveForm.category}
                               onChange={(e) => setApproveForm({ ...approveForm, category: e.target.value })}
                               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
-                            >
-                              <option value="Electronics">Electronics</option>
-                              <option value="Home & Kitchen">Home & Kitchen</option>
-                              <option value="Health & Beauty">Health & Beauty</option>
-                              <option value="Computers">Computers</option>
-                              <option value="Fashion & Accessories">Fashion & Accessories</option>
-                              <option value="Garden & Outdoors">Garden & Outdoors</option>
-                            </select>
+                              placeholder="Type or select category"
+                            />
+                            <datalist id="approveCategories">
+                              {Array.from(new Set(productsList.map(p => p.category).filter(Boolean))).map(cat => (
+                                <option key={cat as string} value={cat as string} />
+                              ))}
+                              <option value="Electronics" />
+                              <option value="Home & Kitchen" />
+                              <option value="Health & Beauty" />
+                              <option value="Computers" />
+                              <option value="Fashion & Accessories" />
+                              <option value="Garden & Outdoors" />
+                            </datalist>
                           </div>
                         </div>
 
