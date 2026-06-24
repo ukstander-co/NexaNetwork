@@ -165,7 +165,7 @@ class AICompatibilityClient {
               }
 
               const response = await activeGeminiClient.models.generateContent({
-                model: "gemini-3.5-flash",
+                model: "gemini-1.5-flash",
                 contents: geminiMessages,
                 config: {
                   systemInstruction,
@@ -5326,7 +5326,7 @@ Return valid JSON ONLY (no comments) in this format:
       });
 
       const response = await client.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: "Reply with exactly 'Gemini API is working successfully!'"
       });
 
@@ -5350,7 +5350,7 @@ Return valid JSON ONLY (no comments) in this format:
           sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
           args: [key, typeof val === 'string' ? val : JSON.stringify(val)]
         });
-        if (key === 'zenmux_api_key' || key === 'gemini_api_key') {
+        if (key === 'zenmux_api_key' || key === 'gemini_api_key' || key === 'groq_api_key') {
           isKeyUpdated = true;
         }
       }

@@ -185,6 +185,7 @@ export default function AdminDashboard() {
     apifreellm_api_key: '',
     zenmux_api_key: '',
     gemini_api_key: '',
+    groq_api_key: '',
     rainforest_sort_by: 'average_customer_reviews',
     rainforest_min_rating: '0.0',
     rainforest_min_reviews: '0',
@@ -459,6 +460,7 @@ export default function AdminDashboard() {
           apifreellm_api_key: data.apifreellm_api_key || '',
           zenmux_api_key: data.zenmux_api_key || '',
           gemini_api_key: data.gemini_api_key || '',
+          groq_api_key: data.groq_api_key || '',
           rainforest_sort_by: data.rainforest_sort_by || 'average_customer_reviews',
           rainforest_min_rating: data.rainforest_min_rating || '0.0',
           rainforest_min_reviews: data.rainforest_min_reviews || '0',
@@ -994,8 +996,15 @@ export default function AdminDashboard() {
         setProductForm(prev => ({ ...prev, ai_schema: data.faq_schema_script }));
         setProductSaveSuccess(`Generated ${data.questions_generated} FAQs for rich snippets!`);
         setTimeout(() => setProductSaveSuccess(''), 4000);
+      } else {
+        setProductSaveSuccess(`Error generating FAQs: ${data.error || 'Unknown error'}`);
+        setTimeout(() => setProductSaveSuccess(''), 4000);
       }
-    } catch(err) { console.error(err); } 
+    } catch(err) { 
+      console.error(err);
+      setProductSaveSuccess(`Error generating FAQs. Please try again.`);
+      setTimeout(() => setProductSaveSuccess(''), 4000);
+    }
     finally { setGeneratingFAQ(false); }
   };
 
@@ -2606,6 +2615,19 @@ export default function AdminDashboard() {
                       </div>
 
                       <div className="border-t border-emerald-100/60 pt-3">
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-purple-600" /> Groq API Key
+                        </label>
+                        <div className="flex gap-2 mb-3">
+                          <input 
+                            type="password" 
+                            value={globalSettings.groq_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, groq_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your Groq API key here (gsk_...)"
+                          />
+                        </div>
+
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3 text-purple-600" /> Google Gemini API Key (High-Fidelity Backup & SEO Agent)
                         </label>
