@@ -412,6 +412,18 @@ export default function AdminDashboard() {
 
   const [keyPoolStats, setKeyPoolStats] = useState<any>({ total: 0, working: 0, keys: [] });
   const [isSyncingKeys, setIsSyncingKeys] = useState(false);
+  const [longtermMemories, setLongtermMemories] = useState<any[]>([]);
+
+  const fetchLongtermMemories = () => {
+    fetch('/api/admin/longterm-memory')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setLongtermMemories(data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch longterm memories:", err));
+  };
 
   const fetchKeyPoolStats = () => {
     fetch('/api/admin/free-keys-stats')
@@ -426,6 +438,7 @@ export default function AdminDashboard() {
 
   const fetchGlobalSettings = () => {
     fetchKeyPoolStats();
+    fetchLongtermMemories();
     fetch('/api/global-settings')
       .then(res => res.json())
       .then(data => {
@@ -2642,6 +2655,62 @@ export default function AdminDashboard() {
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Google Gemini (gemini-3.5-flash) handles tags, SEO keyword injection, metadata optimization, and serves as the highest-fidelity fallback.
                         </p>
+                      </div>
+
+                      {/* SQLite AI Agent Longterm Memory Dashboard */}
+                      <div className="border-t border-emerald-100/60 pt-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <div>
+                            <label className="block text-[10px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                              🧠 SQLite Persistent AI Longterm Memory Database
+                            </label>
+                            <p className="text-[9px] text-slate-500 font-medium">
+                              Saves SEO outcomes, customer profile learning, and key updates permanently. Safe across rotates!
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => fetchLongtermMemories()}
+                            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded transition-colors"
+                          >
+                            Refresh Memory logs
+                          </button>
+                        </div>
+
+                        {longtermMemories && longtermMemories.length > 0 ? (
+                          <div className="bg-slate-50/50 rounded-xl border border-slate-100 p-2 max-h-[220px] overflow-y-auto space-y-1.5">
+                            {longtermMemories.map((m: any) => (
+                              <div key={m.id} className="bg-white p-2 rounded-lg shadow-sm border border-slate-100 flex flex-col gap-1 text-[10px]">
+                                <div className="flex justify-between items-center border-b border-slate-50 pb-1">
+                                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                    m.memory_type === 'key_rotation_event' 
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                                      : m.memory_type === 'seo_activity'
+                                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                  }`}>
+                                    {m.memory_type}
+                                  </span>
+                                  {m.context_key && (
+                                    <span className="font-mono text-[9px] text-slate-500 font-semibold truncate max-w-[150px]">
+                                      Key: {m.context_key}
+                                    </span>
+                                  )}
+                                  <span className="text-[8px] text-slate-400 font-medium">
+                                    {new Date(m.created_at).toLocaleString('en-GB')}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-700 leading-relaxed font-medium">
+                                  {m.content}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center p-4 text-[9px] text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                            No memories recorded yet. Start talking to the Shopping Assistant or run an SEO update to populate longterm data.
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-emerald-100/60 pt-3">

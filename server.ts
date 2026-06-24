@@ -50,9 +50,19 @@ class AICompatibilityClient {
 
           let lastError: any = null;
 
-          // 1. Try ZenMux (Z.AI) GLM-4.6V-Flash-Free API key from Github Key Pool or settings (Replaces DeepSeek)
+          // 1. Try free OpenAI-compatible models from the Github Key Pool (e.g., GLM, DeepSeek, Gemini, GPT)
           let zenmuxSuccess = false;
           let zenmuxResponse: any = null;
+
+          // A diverse selection of models supported by the free key pool to perform SEO and personalization tasks
+          // each with its own style, tone, and flavor as requested by the user ("apna apna tarika sa SEO").
+          const poolModels = [
+            "z-ai/glm-4.6v-flash-free",
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
+            "google/gemini-3.1-flash-lite",
+            "openai/gpt-chat-latest"
+          ];
 
           for (let attempt = 0; attempt < 3; attempt++) {
             const zmKey = await getWorkingZenMuxKey();
@@ -61,10 +71,13 @@ class AICompatibilityClient {
               break;
             }
 
+            // Pick a model based on attempt index or randomly to guarantee varied styles and clean rotation
+            const chosenModel = poolModels[(attempt + Math.floor(Math.random() * poolModels.length)) % poolModels.length];
+
             try {
-              console.log(`[AI Compatibility] ${this.clientName} calling ZenMux API (z-ai/glm-4.6v-flash-free) with key ${zmKey.slice(0, 10)}... (Attempt ${attempt + 1})`);
+              console.log(`[AI Compatibility] ${this.clientName} calling dynamic pool model: ${chosenModel} with key ${zmKey.slice(0, 10)}... (Attempt ${attempt + 1})`);
               const response = await axios.post('https://aiapiv2.pekpik.com/v1/chat/completions', {
-                model: "z-ai/glm-4.6v-flash-free",
+                model: chosenModel,
                 messages: params.messages,
                 ...(jsonMode ? { response_format: params.response_format } : {})
               }, {
@@ -76,27 +89,38 @@ class AICompatibilityClient {
               });
 
               if (response.data && response.data.choices && response.data.choices[0]) {
-                console.log(`[AI Compatibility] ${this.clientName} successfully retrieved ZenMux API response.`);
+                console.log(`[AI Compatibility] ${this.clientName} successfully retrieved response from pool model: ${chosenModel}.`);
                 zenmuxResponse = response.data;
                 zenmuxSuccess = true;
                 break; // Successful!
               } else {
-                throw new Error("Invalid response format from ZenMux API");
+                throw new Error(`Invalid response format from pool model: ${chosenModel}`);
               }
             } catch (error: any) {
               const errDetails = error.response?.data || error.message || error;
               const errMsg = typeof errDetails === 'object' ? JSON.stringify(errDetails) : String(errDetails);
-              console.log(`[AI Compatibility] ZenMux key ${zmKey.slice(0, 10)}... failed:`, errMsg);
+              console.log(`[AI Compatibility] Model ${chosenModel} with key ${zmKey.slice(0, 10)}... failed:`, errMsg);
               
-              // Mark this key as broken so we don't use it again
-              try {
-                await db.execute({
-                  sql: "UPDATE free_api_keys SET is_working = 0, last_error = ?, last_tested = CURRENT_TIMESTAMP WHERE api_key = ?",
-                  args: [errMsg.slice(0, 500), zmKey]
-                });
-                console.log(`[AI Compatibility] Marked key ${zmKey.slice(0, 10)}... as broken/inactive in database.`);
-              } catch (dbErr) {
-                console.error("Failed to update key status in DB:", dbErr);
+              const errStr = errMsg.toLowerCase();
+              // If it's a key/auth issue, mark the key as broken so it's excluded from subsequent queries
+              if (errStr.includes("auth") || errStr.includes("key") || errStr.includes("unauthorized") || errStr.includes("invalid") || error.response?.status === 401 || error.response?.status === 403) {
+                try {
+                  await db.execute({
+                    sql: "UPDATE free_api_keys SET is_working = 0, last_error = ?, last_tested = CURRENT_TIMESTAMP WHERE api_key = ?",
+                    args: [`[Auth Error] ${errMsg.slice(0, 450)}`, zmKey]
+                  });
+                  console.log(`[AI Compatibility] Marked key ${zmKey.slice(0, 10)}... as broken/inactive in database.`);
+                } catch (dbErr) {
+                  console.error("Failed to update key status in DB:", dbErr);
+                }
+              } else {
+                // Otherwise update the error log but keep it active
+                try {
+                  await db.execute({
+                    sql: "UPDATE free_api_keys SET last_error = ?, last_tested = CURRENT_TIMESTAMP WHERE api_key = ?",
+                    args: [`[Model ${chosenModel} Error] ${errMsg.slice(0, 450)}`, zmKey]
+                  });
+                } catch (dbErr) {}
               }
               lastError = error;
             }
@@ -467,6 +491,14 @@ const syncFreeApiKeys = async () => {
     }
 
     console.log(`[Sync] Completed key sync. Added ${addedCount} new keys. Auto-deleted ${keysToDelete.length} stale keys.`);
+
+    // Persist key synchronization details to long-term memory
+    try {
+      await db.execute({
+        sql: "INSERT INTO agent_longterm_memory (memory_type, context_key, content, importance) VALUES ('key_rotation_event', 'github_sync', ?, 6)",
+        args: [`GitHub Free Keys Pool synchronized. Added ${addedCount} new keys, auto-deleted ${keysToDelete.length} stale keys. Active working pool is updated.`]
+      });
+    } catch (memErr) {}
   } catch (error: any) {
     console.error("[Sync] Error syncing free LLM API keys from GitHub:", error.message || error);
   }
@@ -1302,6 +1334,18 @@ To start a return, please follow these simple steps:
       )
     `);
 
+    // AI Agent Longterm Memory Table to persist agent decisions, key updates, and customer preference summaries
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS agent_longterm_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        memory_type TEXT NOT NULL, -- 'seo_activity', 'customer_profile', 'key_rotation_event', 'site_improvement'
+        context_key TEXT,          -- user email or topic slug or category
+        content TEXT NOT NULL,     -- actual summarized memory / learned facts / system notes
+        importance INTEGER DEFAULT 5,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Seed mock products into DB if empty
     const productCheck = await db.execute("SELECT COUNT(*) as count FROM products");
     const pCount = Number(productCheck.rows[0].count);
@@ -1453,10 +1497,25 @@ function startServer() {
       const trendsRes = await db.execute("SELECT topic, recommended_keywords FROM predictive_trends ORDER BY id DESC LIMIT 5");
       const marketTrends = trendsRes.rows.map(r => `${r.topic} (${r.recommended_keywords})`).join("; ");
 
+      // Fetch past AI Agent memories to preserve continuity across rotating keys/models
+      let pastMemoriesContext = "No prior memory entries found. Starting fresh.";
+      try {
+        const memRes = await db.execute("SELECT content, created_at FROM agent_longterm_memory WHERE memory_type = 'seo_activity' ORDER BY created_at DESC LIMIT 10");
+        if (memRes.rows.length > 0) {
+          pastMemoriesContext = memRes.rows.map(r => `[Memory on ${r.created_at}]: ${r.content}`).join("\n");
+        }
+      } catch (err) {
+        console.error("Failed to read agent memories:", err);
+      }
+
       const prompt = `You are an elite UK-based SEO expert for 'ukstander.shop'. 
       Your task is to generate updated SEO metadata based on:
       1. User Interests: ${userInterests || "Curated premium electronics and home decor"}
       2. Market Trends: ${marketTrends || "General UK retail growth"}
+
+      --- AGENT MEMORY (PAST SEO RUNS & SYSTEM HISTORY) ---
+      The following memories were persisted in our long-term SQLite database. Use this context to continue previous optimization decisions, build on historical trends, and avoid repeating the exact same titles/keywords:
+      ${pastMemoriesContext}
 
       Goal: Generate JSON with 'title', 'description', and 'keywords' (including hashtags) tuned for Google.co.uk. 
       Focus on British English and local shopping intent. Stand out from competitors.
@@ -1476,6 +1535,18 @@ function startServer() {
             sql: "INSERT INTO seo_data (title, description, keywords) VALUES (?, ?, ?)",
             args: [result.title, result.description, result.keywords]
         });
+
+        // Persist new decision to long-term memory
+        try {
+          await db.execute({
+            sql: "INSERT INTO agent_longterm_memory (memory_type, context_key, content, importance) VALUES ('seo_activity', 'uk_seo_analysis', ?, 8)",
+            args: [`Autonomous SEO run completed. Created new SEO title: "${result.title}", keywords: "${result.keywords}". Assessed against current user interests (${userInterests.slice(0, 150)}...) and market trends.`]
+          });
+          console.log("[AI Agent] Saved SEO action details to agent_longterm_memory successfully.");
+        } catch (memErr) {
+          console.error("Failed to save memory entry:", memErr);
+        }
+
         console.log("[AI Agent] Autonomous Weekly SEO Update Complete:", result.title);
       }
     } catch (e) {
@@ -5193,6 +5264,16 @@ Return valid JSON ONLY (no comments) in this format:
     }
   });
 
+  // Fetch Long-term AI Memory logs for the admin panel
+  app.get('/api/admin/longterm-memory', async (req, res) => {
+    try {
+      const result = await db.execute("SELECT id, memory_type, context_key, content, importance, created_at FROM agent_longterm_memory ORDER BY created_at DESC LIMIT 100");
+      res.json(result.rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Test Gemini API Key Endpoint
   app.post('/api/admin/test-gemini', async (req, res) => {
     try {
@@ -5230,12 +5311,25 @@ Return valid JSON ONLY (no comments) in this format:
   // POST global settings for header/footer
   app.post('/api/global-settings', async (req, res) => {
     try {
+      let isKeyUpdated = false;
       for (const [key, val] of Object.entries(req.body)) {
         await db.execute({
           sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
           args: [key, typeof val === 'string' ? val : JSON.stringify(val)]
         });
+        if (key === 'zenmux_api_key' || key === 'gemini_api_key') {
+          isKeyUpdated = true;
+        }
       }
+
+      if (isKeyUpdated) {
+        try {
+          await db.execute({
+            sql: "INSERT INTO agent_longterm_memory (memory_type, context_key, content, importance) VALUES ('key_rotation_event', 'admin_update', 'Administrator manually updated primary LLM API keys in global settings dashboard.', 7)",
+          });
+        } catch (memErr) {}
+      }
+
       invalidateServerCache('globalSettings');
       res.json({ success: true, message: "Global settings updated successfully." });
     } catch (e) {
@@ -6461,6 +6555,59 @@ Current Description: ${description}`;
 
   const shoppingAssistantGroq = new AICompatibilityClient("Shopping Assistant Chat", "llama-3.1-8b-instant");
 
+  // Helper to extract customer profile data dynamically in the background and store it in agent longterm memory
+  const updateCustomerMemoryFromChat = async (userEmail: string, chatMsgs: any[]) => {
+    try {
+      if (!chatMsgs || chatMsgs.length < 2) return;
+      
+      const key = await getWorkingZenMuxKey();
+      if (!key) return;
+
+      // Extract last 4 messages to identify user's real interest/preference
+      const recentConversation = chatMsgs.slice(-4).map(m => `${m.role === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`).join("\n");
+
+      const systemPrompt = `You are an elite UK Commerce AI Profile Analyzer for UKStander.
+Your job is to read the latest snippet of chat conversation and extract exactly one permanent, helpful interest, concern, preference, or requirement about this customer.
+
+Rules:
+1. Do not capture dynamic pleasantries or short-term actions. Capture things that help us serve them better in the future (e.g., specific budget limits, product category interest, brand preferences, specific complaints, or size requirements).
+2. Examples of excellent output:
+   - "The customer prefers cooking products and is looking for a Ninja Dual Zone fryer."
+   - "The customer is specifically shopping on a tight budget of under £100."
+   - "The customer was highly interested in active-noise-canceling Sony audio accessories."
+   - "The customer is seeking detailed clarification on the 30-day UK return policy."
+3. If the conversation has no meaningful long-term preference or fact, output exactly: "NO_NEW_FACT".
+4. Output ONLY the single-sentence fact (under 25 words) and absolutely nothing else. No preamble, no quotes, no markdown.`;
+
+      const response = await axios.post('https://aiapiv2.pekpik.com/v1/chat/completions', {
+        model: "google/gemini-3.1-flash-lite", // lightweight, quick and reliable for extraction
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Recent Snippet:\n${recentConversation}` }
+        ],
+        max_tokens: 60
+      }, {
+        headers: {
+          'Authorization': `Bearer ${key.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      const parsedContent = response.data?.choices?.[0]?.message?.content;
+      if (parsedContent && typeof parsedContent === 'string' && parsedContent.trim() !== "" && !parsedContent.toUpperCase().includes("NO_NEW_FACT")) {
+        const cleanedFact = parsedContent.trim().replace(/^["']|["']$/g, '');
+        await db.execute({
+          sql: "INSERT INTO agent_longterm_memory (memory_type, context_key, content, importance) VALUES ('customer_profile', ?, ?, 5)",
+          args: [userEmail, cleanedFact]
+        });
+        console.log(`[AI Longterm Memory] Persisted customer preference for ${userEmail}: "${cleanedFact}"`);
+      }
+    } catch (err: any) {
+      console.error("[AI Longterm Memory] Failed to extract/persist customer preference:", err.message || err);
+    }
+  };
+
   app.post('/api/chat', async (req, res) => {
     const { message, email } = req.body;
     if (!message || !email) {
@@ -6469,9 +6616,98 @@ Current Description: ${description}`;
     }
 
     try {
-      // Get all products to provide context
-      const productsReq = await db.execute("SELECT id, ai_title, price, category FROM products LIMIT 50");
-      const productsContext = productsReq.rows.map(r => `- ${r.ai_title} (Category: ${r.category}, Price: £${r.price}) - ID: db-${r.id}`).join('\n');
+      // 1. Gather dynamic product context from the entire website based on keywords
+      const words = message.toLowerCase().split(/\s+/).filter((word: string) => word.length > 3);
+      const searchTerms = words.map((w: string) => w.replace(/[^a-zA-Z0-9]/g, '')).filter(Boolean);
+      
+      let matchedProducts: any[] = [];
+      let pageContext = "";
+      let catalogSummary = "";
+      let customerMemoriesContext = "No prior stored preferences for this user.";
+      let systemEventsContext = "No recent system updates logged.";
+
+      // Fetch past memory profiles for this user email
+      try {
+        const memRes = await db.execute({
+          sql: "SELECT content, created_at FROM agent_longterm_memory WHERE memory_type = 'customer_profile' AND context_key = ? ORDER BY created_at DESC LIMIT 5",
+          args: [email]
+        });
+        if (memRes.rows.length > 0) {
+          customerMemoriesContext = memRes.rows.map(r => `- Recorded on ${r.created_at}: ${r.content}`).join("\n");
+        }
+      } catch (err) {
+        console.error("Failed to read user memory:", err);
+      }
+
+      // Fetch past key changes or system rotation events to stay informed on system status
+      try {
+        const sysRes = await db.execute("SELECT content, created_at FROM agent_longterm_memory WHERE memory_type = 'key_rotation_event' ORDER BY created_at DESC LIMIT 3");
+        if (sysRes.rows.length > 0) {
+          systemEventsContext = sysRes.rows.map(r => `- On ${r.created_at}: ${r.content}`).join("\n");
+        }
+      } catch (err) {
+        console.error("Failed to read system memories:", err);
+      }
+
+      if (searchTerms.length > 0) {
+        // Build SQL query to search for keywords in title, description, category, or tags
+        const conditions = searchTerms.map(() => "(ai_title LIKE ? OR ai_description LIKE ? OR category LIKE ? OR ai_tags LIKE ?)");
+        const args: any[] = [];
+        for (const term of searchTerms) {
+          const wild = `%${term}%`;
+          args.push(wild, wild, wild, wild);
+        }
+        
+        try {
+          const searchRes = await db.execute({
+            sql: `SELECT id, ai_title, price, category, rating, ai_description, affiliate_link FROM products WHERE ${conditions.join(' OR ')} LIMIT 10`,
+            args
+          });
+          matchedProducts = searchRes.rows;
+        } catch (err) {
+          console.error("Product keyword search failed:", err);
+        }
+      }
+
+      // If no keyword search matches, get top trending/featured products to ensure the agent always has catalog context
+      if (matchedProducts.length === 0) {
+        try {
+          const trendRes = await db.execute("SELECT id, ai_title, price, category, rating, ai_description, affiliate_link FROM products ORDER BY rating DESC, views_count DESC LIMIT 15");
+          matchedProducts = trendRes.rows;
+        } catch (err) {}
+      }
+
+      // Get brief list of all categories to help guide user navigation
+      try {
+        const catRes = await db.execute("SELECT category, COUNT(*) as count FROM products GROUP BY category");
+        catalogSummary = "All Available Catalog Categories: " + catRes.rows.map(r => `${r.category} (${r.count} items)`).join(", ");
+      } catch (err) {}
+
+      // Check for policy pages or blog queries
+      try {
+        const queryLower = message.toLowerCase();
+        if (queryLower.includes("return") || queryLower.includes("refund") || queryLower.includes("delivery") || queryLower.includes("shipping") || queryLower.includes("contact") || queryLower.includes("about") || queryLower.includes("term") || queryLower.includes("policy") || queryLower.includes("privacy")) {
+          const pagesRes = await db.execute("SELECT page_key, title, content FROM site_pages");
+          const matchedPages = pagesRes.rows.filter(p => {
+            const key = String(p.page_key || "").toLowerCase();
+            const title = String(p.title || "").toLowerCase();
+            return queryLower.includes(key) || (key.includes("return") && queryLower.includes("refund")) || (title.includes("contact") && queryLower.includes("contact"));
+          });
+          if (matchedPages.length > 0) {
+            pageContext = "Official Store Policies & Info:\n" + matchedPages.map(p => `- **${p.title}**: ${String(p.content || "").slice(0, 400)}...`).join("\n");
+          }
+        } else if (queryLower.includes("blog") || queryLower.includes("article") || queryLower.includes("post") || queryLower.includes("news") || queryLower.includes("read") || queryLower.includes("guide")) {
+          const blogsRes = await db.execute("SELECT title, slug, tags FROM blogs ORDER BY created_at DESC LIMIT 6");
+          if (blogsRes.rows.length > 0) {
+            pageContext = "Featured Guides & Expert Articles:\n" + blogsRes.rows.map(b => `- "${b.title}" (Tags: ${b.tags || 'none'}, Link: /blog/${b.slug})`).join("\n");
+          }
+        }
+      } catch (err) {}
+
+      // Format beautiful markdown product listing for agent context
+      const productsContext = matchedProducts.map(r => 
+        `- **${r.ai_title}**\n  - *Category*: ${r.category}\n  - *Price*: £${r.price}\n  - *Rating*: ${r.rating || '4.7'}★\n  - *Details*: ${r.ai_description ? r.ai_description.slice(0, 160) : 'Featured high-quality UK deal.'}...\n  - *Direct Link*: /product/${r.id}`
+      ).join('\n\n');
 
       // Check current session from live_chats table
       let session = await db.execute({
@@ -6530,14 +6766,31 @@ Current Description: ${description}`;
         return;
       }
 
-      const prompt = `You are a helpful AI Shopping Assistant for UKStander. You guide customers to the best deals based on their preferences.
+      const prompt = `You are the Official AI Support & Shopping Agent for UKStander. Your name is UKStander Assistant.
+You have COMPLETE, real-time access to the entire website (including products, blogs, and policy pages). 
 
-You have access to the following current catalog:
+--- CATALOG & STORE DATA ---
+${catalogSummary}
+
+--- RELEVANT PRODUCTS FOUND ON WEBSITE ---
 ${productsContext}
 
-Answer user questions neutrally, concisely, and helpfully. Recommend products from the catalog if relevant. 
-If they ask about your logic, explain that you analyze their preferences, wishlist items, and browsing history to find the perfect matches among our curated deals.
-Keep your answers under 3 sentences for better readability, unless they ask for a detailed list. Be friendly and professional.`;
+${pageContext ? `--- RELEVANT WEBSITE PAGES & POLICIES ---\n${pageContext}\n` : ''}
+--- CUSTOMER HISTORY & PROFILE MEMORY (PERSISTED) ---
+These long-term memories of this customer's preferences are loaded directly from our secure database to preserve continuity:
+${customerMemoriesContext}
+
+--- SYSTEM MAINTENANCE & KEY STATUS MEMORIES ---
+The following core system events occurred recently:
+${systemEventsContext}
+
+--- INSTRUCTIONS ---
+1. Answer the user's questions strictly based on the real store data provided above. Do not hallucinate products or prices.
+2. ALWAYS recommend specific products matching their interest and mention their exact prices (e.g. £15.99) and Direct Links (e.g. /product/12).
+3. If they ask about policies (delivery, returns, about us), explain concisely using the official store policies context.
+4. If they ask about blogs/guides, direct them to our latest articles with their full URL slugs (e.g., /blog/slug).
+5. Be incredibly professional, polite, helpful, and friendly. Target British shoppers (use Local UK English like "colour", "favour", "optimised"). 
+6. Keep answers concise, highly scannable (using bullet points for products), and under 4 sentences unless providing a requested list.`;
 
       const groqMessages = [
         { role: 'system', content: prompt },
@@ -6556,6 +6809,11 @@ Keep your answers under 3 sentences for better readability, unless they ask for 
       await db.execute({
         sql: "UPDATE live_chats SET messages = ? WHERE id = ?",
         args: [JSON.stringify(msgs), chatId]
+      });
+
+      // Fire background task to extract and persist any newly learned customer preferences
+      updateCustomerMemoryFromChat(email, msgs).catch((memErr) => {
+        console.error("Async customer profile memory extraction failed:", memErr);
       });
 
       res.json({ reply });
