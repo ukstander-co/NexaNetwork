@@ -1625,53 +1625,65 @@ export default function UserDashboard() {
                       {msg.content}
                     </div>
 
-                    {/* Beautiful graphical Product Cards list */}
-                    {!isUser && matchedCards.length > 0 && (
-                      <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent max-w-full">
-                        {matchedCards.map((prod) => (
-                          <div
-                            key={prod.id}
-                            onClick={() => handleProductView(prod)}
-                            className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-red-100 p-2 cursor-pointer transition-all flex flex-col gap-1.5"
-                          >
-                            <div className="bg-[#FAF9F6] h-24 rounded-xl flex items-center justify-center p-2 relative overflow-hidden border border-slate-50">
-                              <img
-                                src={prod.image || prod.ai_image_url || '/placeholder.png'}
-                                alt={prod.name || prod.ai_title}
-                                className="object-contain w-full h-full mix-blend-multiply"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                            <div className="flex-1 flex flex-col gap-0.5 min-w-0">
-                              <span className="text-[9px] font-bold text-red-600 uppercase tracking-wider truncate">
-                                {prod.category}
-                              </span>
-                              <h4 className="text-[10px] font-bold text-slate-800 line-clamp-2 leading-snug">
-                                {prod.name || prod.ai_title}
-                              </h4>
-                              <div className="mt-auto flex items-center justify-between pt-1">
-                                <span className="text-xs font-black text-slate-900">
-                                  £{Number(prod.price).toFixed(2)}
-                                </span>
-                                {prod.rating && (
-                                  <span className="text-[9px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-black flex items-center gap-0.5 border border-amber-100">
-                                    ★ {prod.rating}
+                    {/* Product Cards and Fallback Links */}
+                    {!isUser && (matchedCards.length > 0 || (msg.products && Array.isArray(msg.products))) && (
+                      <div className="mt-3 space-y-4">
+                        {/* Beautiful graphical Product Cards list */}
+                        {matchedCards.length > 0 && (
+                          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent max-w-full">
+                            {matchedCards.map((prod) => (
+                              <div
+                                key={prod.id}
+                                onClick={() => handleProductView(prod)}
+                                className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-red-100 p-2 cursor-pointer transition-all flex flex-col gap-1.5"
+                              >
+                                <div className="bg-[#FAF9F6] h-24 rounded-xl flex items-center justify-center p-2 relative overflow-hidden border border-slate-50">
+                                  <img
+                                    src={prod.image || prod.ai_image_url || '/placeholder.png'}
+                                    alt={prod.name || prod.ai_title}
+                                    className="object-contain w-full h-full mix-blend-multiply"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                                <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                                  <span className="text-[9px] font-bold text-red-600 uppercase tracking-wider truncate">
+                                    {prod.category}
                                   </span>
-                                )}
+                                  <h4 className="text-[10px] font-bold text-slate-800 line-clamp-2 leading-snug">
+                                    {prod.name || prod.ai_title}
+                                  </h4>
+                                  <div className="mt-auto flex items-center justify-between pt-1">
+                                    <span className="text-xs font-black text-slate-900">
+                                      £{Number(prod.price).toFixed(2)}
+                                    </span>
+                                    {prod.rating && (
+                                      <span className="text-[9px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-black flex items-center gap-0.5 border border-amber-100">
+                                        ★ {prod.rating}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleProductView(prod);
-                              }}
-                              className="w-full bg-red-50 text-red-600 hover:bg-red-100 text-[9px] font-black uppercase tracking-wider py-1.5 rounded-lg transition-all"
-                            >
-                              View Deal
-                            </button>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        
+                        {/* Text Fallback Links */}
+                        <div className="text-[11px] text-slate-600">
+                          <p className="font-bold text-slate-800 mb-1">Recommended Products:</p>
+                          {(matchedCards.length > 0 ? matchedCards : (msg.products || [])).map((prod: any, idx: number) => (
+                            <div key={prod.id || idx} className="mb-2">
+                              <a 
+                                href={prod.affiliate_link || `/product/${prod.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-red-600 hover:text-red-700 hover:underline font-bold"
+                              >
+                                {prod.name || prod.ai_title} - £{Number(prod.price || 0).toFixed(2)}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
