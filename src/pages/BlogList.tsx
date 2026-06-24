@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { apiClient } from '../utils/apiClient';
 import { getProductSeoUrl } from '../utils/seo';
+import { getUkAffiliateLink } from '../utils/links';
 
 export default function BlogList() {
   const navigate = useNavigate();
@@ -330,7 +331,7 @@ export default function BlogList() {
                                      const finalTitle = match?.ai_title || match?.name || blog.title;
                                      navigate(getProductSeoUrl(targetId, finalTitle));
                                    } else if (blog.affiliate_link) {
-                                     window.open(blog.affiliate_link, '_blank', 'noopener,noreferrer');
+                                     window.open(getUkAffiliateLink(blog.affiliate_link), '_blank', 'noopener,noreferrer');
                                    } else {
                                      window.open(`https://www.amazon.co.uk/s?k=${encodeURIComponent(blog.title)}`, '_blank', 'noopener,noreferrer');
                                    }
@@ -425,7 +426,7 @@ export default function BlogList() {
                                    const finalTitle = match?.ai_title || match?.name || blog.title;
                                    navigate(getProductSeoUrl(targetId, finalTitle));
                                  } else if (blog.affiliate_link) {
-                                   window.open(blog.affiliate_link, '_blank', 'noopener,noreferrer');
+                                   window.open(getUkAffiliateLink(blog.affiliate_link), '_blank', 'noopener,noreferrer');
                                  } else {
                                    window.open(`https://www.amazon.co.uk/s?k=${encodeURIComponent(blog.title)}`, '_blank', 'noopener,noreferrer');
                                  }

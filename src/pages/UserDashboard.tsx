@@ -1526,7 +1526,7 @@ export default function UserDashboard() {
                                 £{parseFloat(p.price).toFixed(2)}
                               </span>
                               <a 
-                                href={p.link}
+                                href={getUkAffiliateLink(p.link)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="bg-[#9A7F56] hover:bg-[#8D7048] text-white text-[10px] font-extrabold tracking-wider uppercase px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5"

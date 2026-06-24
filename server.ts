@@ -24,6 +24,8 @@ const groqKeys = [
   .filter(Boolean)
   .filter(key => typeof key === 'string' && key.startsWith('gsk_')) as string[];
 
+const badGroqKeys = new Set<string>();
+
 class AICompatibilityClient {
   private clientName: string;
   private defaultModel: string;
@@ -192,6 +194,7 @@ class AICompatibilityClient {
 
           // 2. Try Groq API keys step-by-step (As requested by user)
           for (const key of groqKeys) {
+            if (badGroqKeys.has(key)) continue;
             try {
               console.log(`[AI Compatibility] ${this.clientName} route calling Groq API (${params.model || this.defaultModel}) with step-by-step key...`);
               const groqClient = new Groq({ apiKey: key });
@@ -201,6 +204,9 @@ class AICompatibilityClient {
                 ...(jsonMode ? { response_format: params.response_format } : {})
               } as any);
             } catch (error: any) {
+              if (error.status === 401) {
+                badGroqKeys.add(key);
+              }
               console.log(`[AI Compatibility] ${this.clientName} Groq API warning for a key:`, error.message || error);
               lastError = error;
               // Continue to next key in the step-by-step sequence
