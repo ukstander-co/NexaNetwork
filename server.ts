@@ -2672,7 +2672,7 @@ function startServer() {
             params: {
               query: search_term,
               page: '1',
-              country: 'GB',
+              country: settings['amazon_marketplace'] || 'GB',
               sort_by: mappedSortBy,
               product_condition: 'ALL'
             },
@@ -2897,8 +2897,9 @@ function startServer() {
       const topItems = items.slice(0, targetLimit);
 
       for (const item of topItems) {
-        const title = item.product_title || item.title;
+        let title = item.product_title || item.title;
         const asin = item.asin || item.product_asin;
+        let description = `Top Rated UK Best Seller: Discover this highly popular and deeply reviewed item in our ${search_term} collection. Quality rated ${parseFloat(item.product_star_rating || item.rating || item.product_rating || '4.5').toFixed(1)} stars by ${parseInt(item.product_num_ratings || item.ratings_total || item.num_ratings || item.reviews_count || '42')} verified shoppers. Strongly recommended in the UK market.`;
         if (!title || !asin) continue;
 
         const ratingVal = parseFloat(item.product_star_rating || item.rating || item.product_rating) || 4.5;
@@ -2938,7 +2939,7 @@ function startServer() {
             const prodRes = await axios.get('https://real-time-amazon-data.p.rapidapi.com/product-details', {
               params: {
                 asin: asin,
-                country: 'GB'
+                country: settings['amazon_marketplace'] || 'GB'
               },
               headers: {
                 'x-rapidapi-key': RAPID_KEY,
@@ -2963,6 +2964,10 @@ function startServer() {
                 });
               }
               additionalImagesStr = mediaArr.join(',');
+              if (productData.description) {
+                title = productData.product_title || title;
+                description = productData.description;
+              }
             }
           } catch (mErr: any) {
             console.warn(`[Amazon RapidAPI] Failed getting detailed media for ${asin}`, mErr.message);
@@ -2975,7 +2980,7 @@ function startServer() {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             title,
-            `Top Rated UK Best Seller: Discover this highly popular and deeply reviewed item in our ${search_term} collection. Quality rated ${ratingVal} stars by ${totalRatings} verified shoppers. Strongly recommended in the UK market.`,
+            description,
             finalPrice,
             search_term,
             mainCover,
@@ -3079,7 +3084,7 @@ function startServer() {
         params: {
           query: search_term,
           page: '1',
-          country: 'GB'
+          country: settings['amazon_marketplace'] || 'GB'
         },
         headers: {
           'x-rapidapi-key': RAPID_KEY,

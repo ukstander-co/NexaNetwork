@@ -186,6 +186,7 @@ export default function AdminDashboard() {
     zenmux_api_key: '',
     gemini_api_key: '',
     groq_api_key: '',
+    amazon_marketplace: 'amazon.co.uk',
     rainforest_sort_by: 'average_customer_reviews',
     rainforest_min_rating: '0.0',
     rainforest_min_reviews: '0',
@@ -835,6 +836,76 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const renderGroqOptimizerPanel = () => (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <h2 className="text-sm font-black text-slate-900 uppercase flex items-center gap-2 mb-4">
+        <Sparkles className="w-4 h-4 text-purple-600" /> Publish New Item (Groq AI Optimizer)
+      </h2>
+      <p className="text-xs text-slate-500 mb-6">
+        Paste specifications list data from a seller page, and the AI parses the characteristics, generates a trust title, tags and catalogs details dynamically.
+      </p>
+      <form onSubmit={handleGenerate} className="space-y-4">
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Merchant Redirect Link</label>
+          <input 
+            type="text" 
+            value={formData.affiliateLink} 
+            onChange={e => setFormData({...formData, affiliateLink: e.target.value})}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs"
+            placeholder="https://amazon.co.uk/dp/..."
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Banner Image URL</label>
+          <input 
+            type="text" 
+            value={formData.imageUrl} 
+            onChange={e => setFormData({...formData, imageUrl: e.target.value})}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs"
+            placeholder="https://images.unsplash.com/..."
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Additional Slider Images (Comma Separated)</label>
+          <input 
+            type="text" 
+            value={formData.additionalImages} 
+            onChange={e => setFormData({...formData, additionalImages: e.target.value})}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs"
+            placeholder="https://image1.jpg, https://image2..."
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Standard Item Price (£)</label>
+          <input 
+            type="text" 
+            value={formData.price} 
+            onChange={e => setFormData({...formData, price: e.target.value})}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs"
+            placeholder="49.99"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Specs Context / Raw Characteristics List</label>
+          <textarea 
+            value={formData.rawContext} 
+            onChange={e => setFormData({...formData, rawContext: e.target.value})}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs h-24"
+            placeholder="Paste Amazon product summary sheet..."
+          />
+        </div>
+        <button 
+          type="submit"
+          disabled={loading}
+          className="w-full bg-[#0B192C] text-white py-3 rounded-lg text-xs font-bold uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Optimize & Publish
+        </button>
+      </form>
+      {success && <p className="mt-4 text-xs text-emerald-600 font-bold bg-emerald-50 p-3 rounded-lg">{success}</p>}
+    </div>
+  );
 
   // Pages Curation actions
   const handlePageChange = (key: string) => {
@@ -1912,37 +1983,71 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
-
-              {/* AI Blog Sync utility */}
-              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-black text-indigo-900 uppercase tracking-tight flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5" /> Content Automation Hub
-                  </h4>
-                  <p className="text-indigo-700/70 text-[11px] font-medium max-w-xl mt-1">
-                    Synchronize your catalog. If you have products without blog posts, our AI will generate high-ranking UK shopping guides for them instantly.
-                  </p>
+              
+              {/* Product Catalog Management - Unified Layout */}
+              <div className="space-y-8 mt-8">
+                
+                {/* 1. Optimizer Section - Full Width */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  {renderGroqOptimizerPanel()}
                 </div>
-                <button 
-                  onClick={async () => {
-                    if (!confirm("Start AI blog generation for missing articles? This process may take a few minutes.")) return;
-                    setLoading(true);
-                    try {
-                      const res = await fetch('/api/admin/sync-blogs', { method: 'POST' });
-                      const data = await res.json();
-                      setSuccess(data.message);
-                      setLoading(false);
-                    } catch (err) {
-                      console.error(err);
-                      setLoading(false);
-                      alert("Failed to sync blogs. Check server logs.");
-                    }
-                  }}
-                  className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 shrink-0 cursor-pointer"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Sync Missing Blogs
-                </button>
+
+                {/* 2. Catalog List Section - Full Width */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-900 uppercase flex items-center gap-2">
+                        <LayoutDashboard className="w-4 h-4 text-emerald-600" /> Live Curation Catalog List
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Manage your curated product listings. Edit standard parameters or delete from the database.
+                      </p>
+                    </div>
+                    
+                    {/* Sync Action Moved here for better visibility */}
+                    <button 
+                      onClick={async () => {
+                        if (!confirm("Start AI blog generation for missing articles? This process may take a few minutes.")) return;
+                        setLoading(true);
+                        try {
+                          const res = await fetch('/api/admin/sync-blogs', { method: 'POST' });
+                          const data = await res.json();
+                          setSuccess(data.message);
+                          setLoading(false);
+                        } catch (err) {
+                          console.error(err);
+                          setLoading(false);
+                          alert("Failed to sync blogs. Check server logs.");
+                        }
+                      }}
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2 shrink-0 cursor-pointer"
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      Sync Missing Blogs
+                    </button>
+                  </div>
+                  
+                  <div className="overflow-y-auto max-h-[600px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {productsList.map((prod) => (
+                      <div key={prod.db_id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-start gap-4">
+                         {prod.image_url && <img src={prod.image_url} alt={prod.ai_title} className="w-16 h-16 rounded-lg object-cover" />}
+                         <div className="flex-1 min-w-0">
+                           <h4 className="text-xs font-bold text-slate-900 truncate">{prod.ai_title}</h4>
+                           <p className="text-[10px] text-slate-500">{prod.category || 'General'}</p>
+                           <p className="text-xs font-bold text-slate-900 mt-1">£{prod.price || '0.00'}</p>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <button onClick={() => handleEditProductClick(prod)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-1 hover:text-indigo-800">
+                             <Edit2 className="w-3 h-3" /> Edit
+                           </button>
+                           <button onClick={() => handleDeleteProduct(prod.db_id)} className="text-[10px] text-rose-600 font-bold flex items-center gap-1 hover:text-rose-800">
+                             <Trash2 className="w-3 h-3" /> Delete
+                           </button>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -2626,6 +2731,20 @@ export default function AdminDashboard() {
                             className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
                             placeholder="Paste your Groq API key here (gsk_...)"
                           />
+                        </div>
+
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Globe className="w-3 h-3 text-purple-600" /> Amazon Marketplace
+                        </label>
+                        <div className="flex gap-2 mb-3">
+                          <select 
+                            value={globalSettings.amazon_marketplace || 'GB'} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, amazon_marketplace: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="GB">Amazon UK (GB)</option>
+                            <option value="US">Amazon US (US)</option>
+                          </select>
                         </div>
 
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
