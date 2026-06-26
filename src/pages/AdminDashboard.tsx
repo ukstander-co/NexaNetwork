@@ -178,6 +178,7 @@ export default function AdminDashboard() {
     rainforest_api_key: '',
     ranknibbler_api_key: '',
     pagespeed_api_key: '',
+    seo_keyword_research_api_key: '',
     scraper_api_key: '',
     zenrows_api_key: '',
     amazon_scraper_api_key: '',
@@ -455,6 +456,7 @@ export default function AdminDashboard() {
           rainforest_api_key: data.rainforest_api_key || '',
           ranknibbler_api_key: data.ranknibbler_api_key || '',
           pagespeed_api_key: data.pagespeed_api_key || '',
+          seo_keyword_research_api_key: data.seo_keyword_research_api_key || '',
           scraper_api_key: data.scraper_api_key || '',
           zenrows_api_key: data.zenrows_api_key || '',
           amazon_scraper_api_key: data.amazon_scraper_api_key || '',
@@ -2375,15 +2377,44 @@ export default function AdminDashboard() {
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3" /> RapidAPI Amazon Data Key
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.amazon_rapidapi_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, amazon_rapidapi_key: e.target.value })} 
-                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your RapidAPI key here (e.g., be4073b80fmshb89af07ca81c257p1a3691jsne299b0d2e254)"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.amazon_rapidapi_key} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, amazon_rapidapi_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your RapidAPI key here (e.g., be4073b80fmshb89af07ca81c257p1a3691jsne299b0d2e254)"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.amazon_rapidapi_key || globalSettings.amazon_rapidapi_key.trim() === '') {
+                                      alert('Please enter a valid RapidAPI key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-rapidapi-amazon', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.amazon_rapidapi_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing RapidAPI Amazon Data Scraper.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
-                          Enter your active RapidAPI key for the "Real-Time Amazon Data" API to synchronize live UK products dynamically.
+                          Enter your active RapidAPI key for the "Instant Amazon Data" API to synchronize live UK products dynamically.
                         </p>
                       </div>
 
@@ -2391,13 +2422,42 @@ export default function AdminDashboard() {
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3" /> ScraperAPI Key (Fallback Layer 2)
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.scraper_api_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, scraper_api_key: e.target.value })} 
-                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your ScraperAPI key here"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.scraper_api_key} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, scraper_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your ScraperAPI key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.scraper_api_key || globalSettings.scraper_api_key.trim() === '') {
+                                      alert('Please enter a valid ScraperAPI key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-scraperapi', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.scraper_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing ScraperAPI.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Enter your active ScraperAPI key to act as a fallback logic when RapidAPI hits rate limits.
                         </p>
@@ -2407,13 +2467,42 @@ export default function AdminDashboard() {
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3" /> ZenRows API Key (Fallback Layer 3)
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.zenrows_api_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, zenrows_api_key: e.target.value })} 
-                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your ZenRows API key here"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.zenrows_api_key} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, zenrows_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your ZenRows API key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.zenrows_api_key || globalSettings.zenrows_api_key.trim() === '') {
+                                      alert('Please enter a valid ZenRows API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-zenrows', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.zenrows_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing ZenRows.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Enter your active ZenRows API key (e.g. 2af21..) for emergency HTML scraping logic.
                         </p>
@@ -2423,13 +2512,42 @@ export default function AdminDashboard() {
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3" /> Amazon Scraper API by Dulmina (Fallback Layer 4)
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.amazon_scraper_api_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, amazon_scraper_api_key: e.target.value })} 
-                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your Amazon Scraper API RapidAPI key here"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.amazon_scraper_api_key} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, amazon_scraper_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your Amazon Scraper API RapidAPI key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.amazon_scraper_api_key || globalSettings.amazon_scraper_api_key.trim() === '') {
+                                      alert('Please enter a valid API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-amazon-scraper', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.amazon_scraper_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing Amazon Scraper API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Enter your RapidAPI key for Dulmina's Amazon Scraper API (e.g. a80878...) for final fallback scraping.
                         </p>
@@ -2439,13 +2557,42 @@ export default function AdminDashboard() {
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3" /> Rainforest API via RapidAPI (Fallback Layer 5)
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.rapidapi_rainforest_api_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, rapidapi_rainforest_api_key: e.target.value })} 
-                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your Rainforest RapidAPI key here"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.rapidapi_rainforest_api_key} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, rapidapi_rainforest_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your Rainforest RapidAPI key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.rapidapi_rainforest_api_key || globalSettings.rapidapi_rainforest_api_key.trim() === '') {
+                                      alert('Please enter a valid API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-rapidapi-rainforest', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.rapidapi_rainforest_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing RapidAPI Rainforest.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Enter your RapidAPI key for Rainforest (e.g. a80878...) as the ultimate layer for product data aggregation.
                         </p>
@@ -2742,6 +2889,33 @@ export default function AdminDashboard() {
                             className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
                             placeholder="Paste your Groq API key here (gsk_...)"
                           />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.groq_api_key || globalSettings.groq_api_key.trim() === '') {
+                                      alert('Please enter a valid Groq API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-groq', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.groq_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing Groq API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
                         </div>
 
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
@@ -2984,25 +3158,122 @@ export default function AdminDashboard() {
                         <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1 flex items-center gap-1.5">
                           <TrendingUp className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> RankNibbler API Key
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.ranknibbler_api_key || ''} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, ranknibbler_api_key: e.target.value })} 
-                          className="w-full bg-white border border-indigo-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 mb-4"
-                          placeholder="Paste your ranknibbler.com API Key here"
-                        />
+                        <div className="flex gap-2 mb-4">
+                          <input 
+                            type="password" 
+                            value={globalSettings.ranknibbler_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, ranknibbler_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-indigo-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            placeholder="Paste your ranknibbler.com API Key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.ranknibbler_api_key || globalSettings.ranknibbler_api_key.trim() === '') {
+                                      alert('Please enter a valid RankNibbler API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-ranknibbler', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.ranknibbler_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing RankNibbler API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1 flex items-center gap-1.5 mt-2">
                           <TrendingUp className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> Google PageSpeed API Key
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.pagespeed_api_key || ''} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, pagespeed_api_key: e.target.value })} 
-                          className="w-full bg-white border border-indigo-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
-                          placeholder="Paste your Google PageSpeed API Key here"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.pagespeed_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, pagespeed_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-indigo-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            placeholder="Paste your Google PageSpeed API Key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.pagespeed_api_key || globalSettings.pagespeed_api_key.trim() === '') {
+                                      alert('Please enter a valid PageSpeed API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-pagespeed', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.pagespeed_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing PageSpeed API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
+                        <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1 flex items-center gap-1.5 mt-2">
+                          <TrendingUp className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> SEO Keyword Research API Key
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.seo_keyword_research_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, seo_keyword_research_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-indigo-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            placeholder="Paste your RapidAPI SEO Keyword Research API Key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.seo_keyword_research_api_key || globalSettings.seo_keyword_research_api_key.trim() === '') {
+                                      alert('Please enter a valid SEO Keyword Research API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-seo-keyword-research', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.seo_keyword_research_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing SEO Keyword Research API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-indigo-600 font-medium mt-1 leading-tight">
-                          These API Keys are used to dynamically power premium SEO indexing insights, search visibility scores, and Google UK search impressions.
+                          These API Keys are used to dynamically power premium SEO indexing insights, search visibility scores, and Google UK search impressions. SEO Keyword Research acts as a fallback or backup layer.
                         </p>
                       </div>
                     </div>
