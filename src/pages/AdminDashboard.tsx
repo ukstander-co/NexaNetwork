@@ -179,9 +179,9 @@ export default function AdminDashboard() {
     ranknibbler_api_key: '',
     pagespeed_api_key: '',
     seo_keyword_research_api_key: '',
+    real_time_web_search_api_key: '',
     scraper_api_key: '',
     zenrows_api_key: '',
-    amazon_scraper_api_key: '',
     rapidapi_rainforest_api_key: '',
     apifreellm_api_key: '',
     zenmux_api_key: '',
@@ -457,9 +457,9 @@ export default function AdminDashboard() {
           ranknibbler_api_key: data.ranknibbler_api_key || '',
           pagespeed_api_key: data.pagespeed_api_key || '',
           seo_keyword_research_api_key: data.seo_keyword_research_api_key || '',
+          real_time_web_search_api_key: data.real_time_web_search_api_key || '',
           scraper_api_key: data.scraper_api_key || '',
           zenrows_api_key: data.zenrows_api_key || '',
-          amazon_scraper_api_key: data.amazon_scraper_api_key || '',
           rapidapi_rainforest_api_key: data.rapidapi_rainforest_api_key || '',
           apifreellm_api_key: data.apifreellm_api_key || '',
           zenmux_api_key: data.zenmux_api_key || '',
@@ -1500,15 +1500,16 @@ export default function AdminDashboard() {
           {/* TAB 2: Products Manager (Add, list, edit, delete products) */}
           {activeTab === 'products' && (
             <div id="pane-products" className="space-y-6 animate-fade-in">
-              {/* Product Edit Module Drawer (Modal banner if active) */}
+              {/* Product Edit Module Modal */}
               {editingProduct && (
-                <div className="bg-indigo-50 border-2 border-indigo-200 p-6 rounded-2xl relative shadow-md">
-                  <button onClick={() => setEditingProduct(null)} className="absolute top-4 right-4 text-xs font-black text-indigo-500 hover:text-indigo-800 uppercase">Cancel Edit</button>
-                  <h4 className="font-extrabold text-indigo-900 flex items-center gap-2 mb-4 text-xs uppercase tracking-wider">
-                    <Edit2 className="w-4 h-4 text-indigo-600" /> Editing Catalog Item Node: (UID {editingProduct.db_id})
-                  </h4>
-                  {productSaveSuccess && <div className="mb-4 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-xs font-bold">{productSaveSuccess}</div>}
-                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+                  <div className="bg-indigo-50 border-2 border-indigo-200 p-6 rounded-2xl relative shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+                    <button onClick={() => setEditingProduct(null)} className="absolute top-4 right-4 text-xs font-black text-indigo-500 hover:text-indigo-800 uppercase">Cancel Edit</button>
+                    <h4 className="font-extrabold text-indigo-900 flex items-center gap-2 mb-4 text-xs uppercase tracking-wider">
+                      <Edit2 className="w-4 h-4 text-indigo-600" /> Editing Catalog Item Node: (UID {editingProduct.db_id})
+                    </h4>
+                    {productSaveSuccess && <div className="mb-4 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-xs font-bold">{productSaveSuccess}</div>}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     <div className="xl:col-span-2">
                       <form onSubmit={handleSaveProductEdit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -1985,6 +1986,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
+                </div>
                 </div>
               )}
                             {/* Product Catalog Management - Unified Layout */}
@@ -2505,51 +2507,6 @@ export default function AdminDashboard() {
                         </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Enter your active ZenRows API key (e.g. 2af21..) for emergency HTML scraping logic.
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3" /> Amazon Scraper API by Dulmina (Fallback Layer 4)
-                        </label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="password" 
-                            value={globalSettings.amazon_scraper_api_key} 
-                            onChange={e => setGlobalSettings({ ...globalSettings, amazon_scraper_api_key: e.target.value })} 
-                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                            placeholder="Paste your Amazon Scraper API RapidAPI key here"
-                          />
-                          <button
-                            type="button"
-                            onClick={async () => {
-                               try {
-                                  if (!globalSettings.amazon_scraper_api_key || globalSettings.amazon_scraper_api_key.trim() === '') {
-                                      alert('Please enter a valid API key first.');
-                                      return;
-                                  }
-                                  const res = await fetch('/api/admin/test-amazon-scraper', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ apiKey: globalSettings.amazon_scraper_api_key })
-                                  });
-                                  const data = await res.json();
-                                  if (data.success) {
-                                      alert('✅ Success! ' + data.response);
-                                  } else {
-                                      alert('❌ Failed: ' + data.message);
-                                  }
-                               } catch (e) {
-                                   alert('Error testing Amazon Scraper API.');
-                               }
-                            }}
-                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
-                          >
-                            Test
-                          </button>
-                        </div>
-                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
-                          Enter your RapidAPI key for Dulmina's Amazon Scraper API (e.g. a80878...) for final fallback scraping.
                         </p>
                       </div>
 
@@ -3272,8 +3229,47 @@ export default function AdminDashboard() {
                             Test
                           </button>
                         </div>
+                        <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1 flex items-center gap-1.5 mt-2">
+                          <TrendingUp className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> Real-Time Web Search API Key
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.real_time_web_search_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, real_time_web_search_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-indigo-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            placeholder="Paste your RapidAPI Real-Time Web Search API Key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.real_time_web_search_api_key || globalSettings.real_time_web_search_api_key.trim() === '') {
+                                      alert('Please enter a valid Real-Time Web Search API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-real-time-web-search', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.real_time_web_search_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing Real-Time Web Search API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
                         <p className="text-[9px] text-indigo-600 font-medium mt-1 leading-tight">
-                          These API Keys are used to dynamically power premium SEO indexing insights, search visibility scores, and Google UK search impressions. SEO Keyword Research acts as a fallback or backup layer.
+                          These API Keys are used to dynamically power premium SEO indexing insights, search visibility scores, and Google UK search impressions. SEO Keyword Research acts as a fallback or backup layer. Real-Time Web Search API empowers Live SEO Content Generation context.
                         </p>
                       </div>
                     </div>
@@ -4879,6 +4875,33 @@ export default function AdminDashboard() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Pinterest feed */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] uppercase font-black tracking-widest text-indigo-500 font-sans">
+                          Pinterest Auto-Publish Feed
+                        </span>
+                        <div className="flex gap-2">
+                          <input
+                            id="rss-pinterest-url"
+                            type="text"
+                            readOnly
+                            value={`${window.location.origin}/feed/pinterest.xml`}
+                            className="bg-slate-50 w-full px-3 py-2 border border-indigo-200 rounded-lg text-xs font-mono font-semibold text-slate-600 tracking-tight"
+                          />
+                          <button
+                            id="btn-copy-pinterest-rss"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/feed/pinterest.xml`);
+                              alert("Pinterest Auto-Publish RSS feed URL copied to clipboard!");
+                            }}
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-2 rounded-lg transition-all cursor-pointer"
+                            title="Copy link"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Check / Diagnose why RSS fails on Pinterest */}
@@ -4913,14 +4936,21 @@ export default function AdminDashboard() {
                         className="flex-1 bg-white hover:bg-slate-100 hover:shadow-xs duration-100 text-slate-800 border border-slate-200 font-bold text-[10px] px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
                       >
                         <ExternalLink className="w-3 h-3 text-slate-500" />
-                        Verify Products XML
+                        Products XML
                       </button>
                       <button
                         onClick={() => window.open('/feed/blogs.xml', '_blank')}
                         className="flex-1 bg-white hover:bg-slate-100 hover:shadow-xs duration-100 text-slate-800 border border-slate-200 font-bold text-[10px] px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
                       >
                         <ExternalLink className="w-3 h-3 text-slate-500" />
-                        Verify Blogs XML
+                        Blogs XML
+                      </button>
+                      <button
+                        onClick={() => window.open('/feed/pinterest.xml', '_blank')}
+                        className="flex-1 bg-indigo-50 hover:bg-indigo-100 hover:shadow-xs duration-100 text-indigo-800 border border-indigo-200 font-bold text-[10px] px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                      >
+                        <ExternalLink className="w-3 h-3 text-indigo-500" />
+                        Pinterest XML
                       </button>
                     </div>
                   </div>

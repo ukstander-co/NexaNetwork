@@ -1268,6 +1268,15 @@ To start a return, please follow these simple steps:
       });
     }
 
+    // Ensure real_time_web_search_api_key exists
+    const realTimeWebCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'real_time_web_search_api_key'");
+    if (Number(realTimeWebCheck.rows[0].count) === 0) {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['real_time_web_search_api_key', 'a80878b602mshcad15fb27b42101p129ae6jsn2b1977fe425c']
+      });
+    }
+
     // Ensure amazon_rapidapi_key exists
     const activeAmazonRapidApiKeyCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'amazon_rapidapi_key'");
     if (Number(activeAmazonRapidApiKeyCheck.rows[0].count) === 0) {
@@ -1319,15 +1328,6 @@ To start a return, please follow these simple steps:
       await db.execute({
         sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
         args: ['zenrows_api_key', '2af2122d3110c8dbee2c42dfc7cf0424c029c752']
-      });
-    }
-
-    // Ensure amazon_scraper_api_key exists
-    const amazonScraperApiKeyCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'amazon_scraper_api_key'");
-    if (Number(amazonScraperApiKeyCheck.rows[0].count) === 0) {
-      await db.execute({
-        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
-        args: ['amazon_scraper_api_key', 'a80878b602mshcad15fb27b42101p129ae6jsn2b1977fe425c']
       });
     }
 
@@ -1576,10 +1576,14 @@ function startServer() {
         console.error("Failed to read agent memories:", err);
       }
 
+      // Fetch Live Web Search SEO Context (Real-Time Web Search RapidAPI)
+      let liveWebContext = await fetchRealTimeWebSearchContext('What are the top trending e-commerce and shopping search keywords in the UK this week? Provide a concise list of high-volume SEO topics and trends.');
+
       const prompt = `You are an elite UK-based SEO expert for 'ukstander.shop'. 
       Your task is to generate updated SEO metadata based on:
       1. User Interests: ${userInterests || "Curated premium electronics and home decor"}
       2. Market Trends: ${marketTrends || "General UK retail growth"}
+      ${liveWebContext ? `3. LIVE UK WEB TRENDS (From Real-Time Search API): ${liveWebContext}` : ''}
 
       --- AGENT MEMORY (PAST SEO RUNS & SYSTEM HISTORY) ---
       The following memories were persisted in our long-term SQLite database. Use this context to continue previous optimization decisions, build on historical trends, and avoid repeating the exact same titles/keywords:
@@ -1640,6 +1644,33 @@ function startServer() {
 
   // --- AI Trend Suggestion Autonomous Scraper Functions ---
   
+  async function fetchRealTimeWebSearchContext(query: string): Promise<string> {
+    try {
+      const settingsRes = await db.execute("SELECT value FROM global_settings WHERE key = 'real_time_web_search_api_key'");
+      let realTimeWebKey = settingsRes.rows.length > 0 ? settingsRes.rows[0].value as string : '';
+      if (!realTimeWebKey || realTimeWebKey === '') return "";
+
+      const liveRes = await axios.post(`https://real-time-web-search.p.rapidapi.com/ai-mode`, {
+        prompt: query,
+        gl: 'gb',
+        hl: 'en'
+      }, {
+        headers: {
+          'x-rapidapi-key': realTimeWebKey,
+          'x-rapidapi-host': 'real-time-web-search.p.rapidapi.com',
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000 
+      });
+      if (liveRes.data && liveRes.data.response) {
+         return liveRes.data.response;
+      }
+    } catch (e) {
+      console.warn("[Live Web Search] Error:", e);
+    }
+    return "";
+  }
+
   async function generateFallbackTrendingProducts() {
     console.log("[Local Scraper Fallback] Creating premium local trend suggestions...");
     const fallbackSuggestions = [
@@ -2839,51 +2870,6 @@ function startServer() {
             rawItems = zItems;
           } catch (e: any) {
              console.warn(`[ZenRows] HTML Fallback Error: ${e.message}`);
-          }
-        }
-      }
-      
-      // Scraping Layer 4: Dulmina Amazon Scraper API (Fallback if Layer 3 fails)
-      if (rawItems.length === 0) {
-        const dulminaKey = settings['amazon_scraper_api_key'] || process.env.AMAZON_SCRAPER_API_KEY || 'a80878b602mshcad15fb27b42101p129ae6jsn2b1977fe425c';
-        if (dulminaKey && dulminaKey !== 'placeholder') {
-          console.log(`[Amazon Scraper API] Layer activated... Triggering fallback for query: "${search_term}"...`);
-          try {
-            const url = `https://amazon-scraper-api4.p.rapidapi.com/search/${encodeURIComponent(search_term)}`;
-            const response = await axios.get(url, {
-              headers: {
-                'x-rapidapi-key': dulminaKey,
-                'x-rapidapi-host': 'amazon-scraper-api4.p.rapidapi.com'
-              },
-              params: {
-                api_key: '52fb2cfe88aa766c6ee91b82ad8c582c' // Example base key from testing, or empty depending on what the api expects. The docs showed 'f2fb2cfe88aa766c6ee91b82ad8c582c'
-              },
-              timeout: 30000
-            });
-            
-            if (response.data && response.data.results) {
-               rawItems = response.data.results.map((r: any) => ({
-                  product_title: r.title || r.name,
-                  asin: r.asin || 'B0' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-                  product_url: r.url || r.link,
-                  product_price: r.price,
-                  product_photo: r.image || r.thumbnail,
-                  product_star_rating: r.rating || r.stars,
-                  product_num_ratings: r.reviews || r.total_reviews
-               }));
-            } else if (response.data && Array.isArray(response.data)) {
-               rawItems = response.data.map((r: any) => ({
-                  product_title: r.title || r.name,
-                  asin: r.asin || 'B0' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-                  product_url: r.url || r.link,
-                  product_price: r.price?.current_price || r.price,
-                  product_photo: r.thumbnail || r.image,
-                  product_star_rating: r.reviews?.rating || r.rating,
-                  product_num_ratings: r.reviews?.total_reviews || r.total_reviews
-               }));
-            }
-          } catch (e: any) {
-             console.warn(`[Amazon Scraper API] Error: ${e.message}`);
           }
         }
       }
@@ -4513,6 +4499,48 @@ CORE INSTRUCTIONS:
     }
   });
 
+  app.get('/feed/pinterest.xml', async (req, res) => {
+    try {
+      const products = await getCachedEnrichedProducts();
+      
+      const itemsXml = products.slice(0, 100).map((product: any) => {
+        const productUrl = `https://ukstander.shop/product/${product.id}`;
+        const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        const pubDate = product.created_at ? new Date(product.created_at).toUTCString() : new Date().toUTCString();
+        const desc = product.ai_description || `Grab this amazing trending UK product. Price: £${product.price}`;
+        
+        return `
+    <item>
+      <title>${escapeXml(product.ai_title || 'Trending UK Product')}</title>
+      <link>${escapeXml(productUrl)}</link>
+      <description>${escapeXml(desc)}</description>
+      <pubDate>${pubDate}</pubDate>
+      <guid isPermaLink="true">${escapeXml(productUrl)}</guid>
+      <media:content url="${escapeXml(imageUrl)}" type="image/jpeg" medium="image" />
+    </item>`;
+      }).join('\n');
+      
+      const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>UKStander - Pinterest Auto-Publish Feed</title>
+    <link>https://ukstander.shop/</link>
+    <description>Latest trending UK products formatted for Pinterest auto-publishing.</description>
+    <language>en-gb</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    ${itemsXml}
+  </channel>
+</rss>`;
+
+      res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(rssXml);
+    } catch (e: any) {
+      console.error("[RSS Pinterest Feed] Failed generation:", e);
+      res.status(500).send(`<error>Failed to generate Pinterest RSS feed: ${escapeXml(e.message)}</error>`);
+    }
+  });
+
   app.get('/feed/google-shopping.xml', async (req, res) => {
     try {
       const products = await getCachedEnrichedProducts();
@@ -5592,6 +5620,31 @@ Return valid JSON ONLY (no comments) in this format:
     }
   });
 
+  // Test Real-Time Web Search API
+  app.post('/api/admin/test-real-time-web-search', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || apiKey.trim() === '') {
+        return res.status(400).json({ success: false, message: "Please provide a valid Real-Time Web Search API key." });
+      }
+      const response = await axios.post(`https://real-time-web-search.p.rapidapi.com/ai-mode`, {
+        prompt: 'Hello, what are the latest shopping trends?',
+        gl: 'gb',
+        hl: 'en'
+      }, {
+        headers: {
+          'x-rapidapi-key': apiKey.trim(),
+          'x-rapidapi-host': 'real-time-web-search.p.rapidapi.com',
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000 
+      });
+      res.json({ success: true, response: "Real-Time Web Search API is working successfully." });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.response?.data?.message || e.message });
+    }
+  });
+
   // Test PageSpeed API
   app.post('/api/admin/test-pagespeed', async (req, res) => {
     try {
@@ -5603,31 +5656,6 @@ Return valid JSON ONLY (no comments) in this format:
       res.json({ success: true, response: "PageSpeed API is working." });
     } catch (e: any) {
       res.status(500).json({ success: false, message: e.response?.data?.error?.message || e.message });
-    }
-  });
-
-  // Test Amazon Scraper API (RapidAPI 4)
-  app.post('/api/admin/test-amazon-scraper', async (req, res) => {
-    try {
-      const { apiKey } = req.body;
-      if (!apiKey || apiKey.trim() === '') {
-        return res.status(400).json({ success: false, message: "Please provide a valid API key." });
-      }
-      // Simple fetch
-      const url = `https://amazon-scraper-api4.p.rapidapi.com/search/laptop`;
-      const response = await axios.get(url, {
-        headers: {
-          'x-rapidapi-key': apiKey.trim(),
-          'x-rapidapi-host': 'amazon-scraper-api4.p.rapidapi.com'
-        },
-        params: {
-          api_key: '52fb2cfe88aa766c6ee91b82ad8c582c'
-        },
-        timeout: 10000
-      });
-      res.json({ success: true, response: "Amazon Scraper API is working." });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.response?.data?.message || e.message });
     }
   });
 
@@ -6739,7 +6767,9 @@ CRITICAL MANDATORY INSTRUCTIONS:
   app.post('/api/admin/seo-competitor-gap-analyzer', async (req, res) => {
     try {
       const { title, description, category } = req.body;
+      let liveWebContext = await fetchRealTimeWebSearchContext(`What are the top ranking competitors and keywords for ${title} in the UK right now? Provide gaps and analysis.`);
       const prompt = `You are a UK SEO Strategist. Analyze this product copy for content gaps compared to standard top-ranking UK competitors for similar products.
+      ${liveWebContext ? `LIVE WEB SEO CONTEXT: ${liveWebContext}\nUse this live context to inform your gap analysis.` : ''}
       
       Respond directly in strictly valid JSON format:
       {
@@ -6752,12 +6782,32 @@ CRITICAL MANDATORY INSTRUCTIONS:
       Desc: ${description}
       Cat: ${category}`;
       
-      const completion = await productGroq.chat.completions.create({
-        messages: [{ role: "system", content: prompt }],
-        model: "llama-3.3-70b-versatile",
-        response_format: { type: "json_object" }
-      });
-      res.json(JSON.parse(completion.choices[0]?.message?.content || '{}'));
+      let parsedData: any = null;
+      try {
+        const completion = await productGroq.chat.completions.create({
+          messages: [{ role: "system", content: prompt }],
+          model: "llama-3.3-70b-versatile",
+          response_format: { type: "json_object" },
+          timeout: 10000
+        });
+        parsedData = JSON.parse(completion.choices[0]?.message?.content || '{}');
+      } catch (groqErr) {
+        console.warn("[Gap Analyzer] Groq failed, attempting Gemini fallback...", groqErr);
+        const geminiClient = await getGeminiClient();
+        if (geminiClient) {
+          const geminiResponse = await geminiClient.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+               responseMimeType: "application/json"
+            }
+          });
+          parsedData = JSON.parse(geminiResponse.text || '{}');
+        } else {
+          throw groqErr; // rethrow if no gemini
+        }
+      }
+      res.json(parsedData);
     } catch(e:any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -6776,12 +6826,32 @@ CRITICAL MANDATORY INSTRUCTIONS:
       Title: ${title}
       Desc: ${description}`;
       
-      const completion = await productGroq.chat.completions.create({
-        messages: [{ role: "system", content: prompt }],
-        model: "llama-3.3-70b-versatile",
-        response_format: { type: "json_object" }
-      });
-      res.json(JSON.parse(completion.choices[0]?.message?.content || '{}'));
+      let parsedData: any = null;
+      try {
+        const completion = await productGroq.chat.completions.create({
+          messages: [{ role: "system", content: prompt }],
+          model: "llama-3.3-70b-versatile",
+          response_format: { type: "json_object" },
+          timeout: 10000
+        });
+        parsedData = JSON.parse(completion.choices[0]?.message?.content || '{}');
+      } catch (groqErr) {
+        console.warn("[FAQ Schema] Groq failed, attempting Gemini fallback...", groqErr);
+        const geminiClient = await getGeminiClient();
+        if (geminiClient) {
+          const geminiResponse = await geminiClient.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+               responseMimeType: "application/json"
+            }
+          });
+          parsedData = JSON.parse(geminiResponse.text || '{}');
+        } else {
+          throw groqErr;
+        }
+      }
+      res.json(parsedData);
     } catch(e:any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -6792,11 +6862,14 @@ CRITICAL MANDATORY INSTRUCTIONS:
         return res.status(400).json({ error: "Title and description required." });
       }
 
+      let liveWebContext = await fetchRealTimeWebSearchContext(`Find trending LSI keywords and search terms related to ${title} in the UK right now.`);
+      
       const lsiPrompt = `You are a Local SEO Latent Semantic Indexing (LSI) Expert for the UK market.
 Analyze the following product details. Identify highly relevant LSI keywords to boost UK search intent (e.g., local buyer terms, semantic synonyms, feature context).
 Then, weave these keywords naturally into a revised, highly converting, SEO-friendly description.
 Keep the existing tone but make it richer for search engines.
 
+${liveWebContext ? `LIVE TRENDING LSI KEYWORDS (Use these if relevant): ${liveWebContext}\n` : ''}
 CRITICAL INSTRUCTIONS:
 - You must output valid JSON matching exactly this schema:
 {
@@ -6808,16 +6881,36 @@ Product Title: ${title}
 Product Category: ${category || 'Uncategorized'}
 Current Description: ${description}`;
 
-      const chatCompletion = await productGroq.chat.completions.create({
-        messages: [{ role: "system", content: lsiPrompt }],
-        model: "llama-3.3-70b-versatile",
-        response_format: { type: "json_object" }
-      });
+      let parsedData: any = null;
+      try {
+        const chatCompletion = await productGroq.chat.completions.create({
+          messages: [{ role: "system", content: lsiPrompt }],
+          model: "llama-3.3-70b-versatile",
+          response_format: { type: "json_object" },
+          timeout: 10000
+        });
 
-      const responseContent = chatCompletion.choices[0]?.message?.content;
-      if (!responseContent) throw new Error("Empty AI response");
+        const responseContent = chatCompletion.choices[0]?.message?.content;
+        if (!responseContent) throw new Error("Empty AI response");
+        parsedData = JSON.parse(responseContent);
+      } catch (groqErr) {
+        console.warn("[LSI Inserter] Groq failed, attempting Gemini fallback...", groqErr);
+        const geminiClient = await getGeminiClient();
+        if (geminiClient) {
+          const geminiResponse = await geminiClient.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: lsiPrompt,
+            config: {
+               responseMimeType: "application/json"
+            }
+          });
+          parsedData = JSON.parse(geminiResponse.text || '{}');
+        } else {
+          throw groqErr;
+        }
+      }
 
-      res.json(JSON.parse(responseContent));
+      res.json(parsedData);
     } catch (e: any) {
       console.error("LSI Gen Error", e);
       res.status(500).json({ error: e.message || "Failed to generate LSI keywords and description" });
