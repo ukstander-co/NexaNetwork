@@ -2498,6 +2498,48 @@ export default function AdminDashboard() {
 
                       <div className="border-t border-emerald-100/60 pt-3">
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> ZenMux GLM API Key
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.zenmux_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, zenmux_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your ZenMux API key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.zenmux_api_key || globalSettings.zenmux_api_key === 'YOUR_ZENMUX_API_KEY') {
+                                      alert('Please enter a valid API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-zenmux-glm', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.zenmux_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! ZenMux GLM is working.\n\nResponse: ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing ZenMux GLM API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-emerald-100/60 pt-3">
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
                           <Sparkles className="w-3 h-3" /> APIFreeLLM API For AI Fallback
                         </label>
                         <div className="flex gap-2">

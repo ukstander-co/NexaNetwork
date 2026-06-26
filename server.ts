@@ -191,7 +191,7 @@ class AICompatibilityClient {
               }
 
               const response = await activeGeminiClient.models.generateContent({
-                model: "gemini-1.5-flash",
+                model: "gemini-2.0-flash",
                 contents: geminiMessages,
                 config: {
                   systemInstruction,
@@ -5425,6 +5425,37 @@ Return valid JSON ONLY (no comments) in this format:
         res.json({ success: true, response: response.data.choices[0].message.content });
       } else {
         res.status(400).json({ success: false, message: "Invalid response format from OpenRouter API." });
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message || "Unknown error occurred";
+      res.status(500).json({ success: false, message: errMsg });
+    }
+  });
+
+  // Test ZenMux GLM API Key Endpoint
+  app.post('/api/admin/test-zenmux-glm', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || apiKey === 'YOUR_ZENMUX_API_KEY') {
+        return res.status(400).json({ success: false, message: "Please provide a valid ZenMux API key." });
+      }
+
+      console.log(`[Test] Testing ZenMux GLM with provided key...`);
+      const response = await axios.post('https://zenmux.ai/api/v1/chat/completions', {
+        model: "z-ai/glm-4.6v-flash-free",
+        messages: [{ role: "user", content: "Reply with exactly 'ZenMux GLM is working successfully!'" }]
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
+        res.json({ success: true, response: response.data.choices[0].message.content });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid response format from ZenMux API." });
       }
     } catch (error: any) {
       const errMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message || "Unknown error occurred";
