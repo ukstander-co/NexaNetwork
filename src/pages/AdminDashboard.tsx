@@ -748,12 +748,21 @@ export default function AdminDashboard() {
               addLog("ℹ️ No new items found in the last 24h. Activated 'Latest 3 Backfill Items' fallback automatically.", 'warning');
             }
 
-            // Print success logs for each enabled target
-            targets.forEach(platform => {
-              addLog(`📢 Live feed synced successfully on: ${platform}!`, 'success');
-            });
+            // Print real-time log outcomes fetched from the server DB execution
+            if (data.logs && data.logs.length > 0) {
+              addLog("📊 Direct Database Platform Log Outcomes:", "info");
+              data.logs.forEach((log: any) => {
+                const logType = log.status === 'success' ? 'success' : 'error';
+                addLog(`[${log.platform.toUpperCase()}] status: ${log.status} | Item: "${log.item_title || 'N/A'}" | Details: ${log.message || ''}`, logType);
+              });
+            } else {
+              // Fallback logs message
+              targets.forEach(platform => {
+                addLog(`📢 Live feed sync triggered for: ${platform}`, 'info');
+              });
+            }
 
-            addLog("🎉 BULK AUTO-PUBLISH OPERATION COMPLETED SUCCESSFULLY!", 'success');
+            addLog("🎉 BULK AUTO-PUBLISH OPERATION COMPLETED!", 'success');
             setAutopostProgressStatus('success');
             setAutopostProgressPercentage(100);
             setBulkAutopostLoading(false);

@@ -728,15 +728,12 @@ function parseCookies(cookieStr: string): Record<string, string> {
 }
 
 async function postTweetWithCookies(cookieStr: string, text: string) {
-  const cookies = parseCookies(cookieStr);
-  const authToken = cookies['auth_token'] || cookieStr.trim();
-  const ct0 = cookies['ct0'] || 'mock_csrf_token_if_not_present';
+  const auth_token = cookieStr.match(/auth_token=([^;]+)/)?.[1] || "";
+  const ct0 = cookieStr.match(/ct0=([^;]+)/)?.[1] || "";
 
-  if (!authToken || authToken.length < 5 || authToken.includes('YOUR_')) {
-    throw new Error("Invalid or missing auth_token cookie value");
+  if (!auth_token) {
+    throw new Error("Missing 'auth_token' cookie parameter in your Twitter/X cookies. Please extract complete cookies from a logged-in x.com session.");
   }
-
-  const finalCookieStr = `auth_token=${authToken}; ct0=${ct0}`;
 
   const graphqlPayload = {
     variables: {
@@ -773,7 +770,7 @@ async function postTweetWithCookies(cookieStr: string, text: string) {
     headers: {
       'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
       'X-Csrf-Token': ct0,
-      'Cookie': finalCookieStr,
+      'Cookie': cookieStr,
       'Content-Type': 'application/json',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Referer': 'https://x.com/compose/post'
@@ -797,142 +794,197 @@ async function postTweetWithCookies(cookieStr: string, text: string) {
 }
 
 async function postFacebookWithCookies(cookieStr: string, message: string, link: string) {
-  // Standard cookies parsing
   const c_user = cookieStr.match(/c_user=([^;]+)/)?.[1] || "";
   const xs = cookieStr.match(/xs=([^;]+)/)?.[1] || "";
   if (!c_user || !xs) {
     throw new Error("Missing required 'c_user' or 'xs' cookie parameters in your pasted Facebook cookies. Please check your browser cookie values!");
   }
   
-  try {
-    const url = 'https://mbasic.facebook.com/composer/mbasic/?av=' + c_user;
-    const response = await fetch(url, {
-      headers: {
-        'Cookie': `c_user=${c_user}; xs=${xs};`,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-      }
-    });
-    
-    const html = await response.text();
-    const actionMatch = html.match(/action="([^"]+composer\/mbasic\/[^"]+)"/i);
-    const fb_dtsgMatch = html.match(/name="fb_dtsg" value="([^"]+)"/i);
-    const jazoestMatch = html.match(/name="jazoest" value="([^"]+)"/i);
-    
-    if (actionMatch && fb_dtsgMatch) {
-      const postUrl = 'https://mbasic.facebook.com' + actionMatch[1].replace(/&amp;/g, '&');
-      const fb_dtsg = fb_dtsgMatch[1];
-      const jazoest = jazoestMatch ? jazoestMatch[1] : "";
-      
-      const formData = new URLSearchParams();
-      formData.append('fb_dtsg', fb_dtsg);
-      formData.append('jazoest', jazoest);
-      formData.append('xc_message', `${message}\n\n${link}`);
-      formData.append('view_post', 'Post');
-      
-      const postResponse = await fetch(postUrl, {
-        method: 'POST',
-        headers: {
-          'Cookie': `c_user=${c_user}; xs=${xs};`,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Referer': url
-        },
-        body: formData.toString()
-      });
-      
-      if (postResponse.ok) {
-        return { success: true, method: 'Headless Cookie Composer (mbasic)', responseUrl: postResponse.url };
-      }
+  const url = 'https://mbasic.facebook.com/';
+  const response = await fetch(url, {
+    headers: {
+      'Cookie': cookieStr,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9'
     }
-  } catch (err: any) {
-    console.error("[Facebook Cookies Error, using fallback]", err);
-  }
+  });
   
-  return { 
-    success: true, 
-    method: 'Headless Cookie Simulator', 
-    message: 'Validated active session for UID ' + c_user + '. Feed post synced successfully via cookies wrapper!' 
-  };
+  const html = await response.text();
+  
+  if (html.includes("checkpoint") || response.url.includes("checkpoint")) {
+    throw new Error("Facebook security checkpoint triggered. Facebook requires device approval or 2FA verification for this login location. Please approve it in your browser.");
+  }
+  if (html.includes("login.php") || html.includes("login_error") || html.includes("Please log in")) {
+    throw new Error("Facebook cookie session is invalid or expired. Please re-authenticate on facebook.com and copy fresh cookies.");
+  }
+
+  const actionMatch = html.match(/action="([^"]*composer\/mbasic\/[^"]*)"/i);
+  const fb_dtsgMatch = html.match(/name="fb_dtsg" value="([^"]+)"/i);
+  const jazoestMatch = html.match(/name="jazoest" value="([^"]+)"/i);
+  
+  if (!actionMatch || !fb_dtsgMatch) {
+    throw new Error(`Facebook composer form not found in response HTML. Your session cookies may be restricted or blocked by Facebook. Response title: "${html.match(/<title>([^<]+)<\/title>/i)?.[1] || "Unknown"}"`);
+  }
+
+  let postUrl = actionMatch[1].replace(/&amp;/g, '&');
+  if (!postUrl.startsWith('http')) {
+    postUrl = 'https://mbasic.facebook.com' + postUrl;
+  }
+
+  const fb_dtsg = fb_dtsgMatch[1];
+  const jazoest = jazoestMatch ? jazoestMatch[1] : "";
+  
+  const formData = new URLSearchParams();
+  formData.append('fb_dtsg', fb_dtsg);
+  formData.append('jazoest', jazoest);
+  formData.append('xc_message', `${message}\n\n${link}`);
+  formData.append('view_post', 'Post');
+  
+  const postResponse = await fetch(postUrl, {
+    method: 'POST',
+    headers: {
+      'Cookie': cookieStr,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': url,
+      'Origin': 'https://mbasic.facebook.com'
+    },
+    body: formData.toString()
+  });
+  
+  const postHtml = await postResponse.text();
+  if (postResponse.ok && !postHtml.includes("login_error") && !postHtml.includes("checkpoint")) {
+    return { 
+      success: true, 
+      method: 'Headless Cookie Composer (mbasic)', 
+      message: 'Status update posted successfully to your Facebook profile or page feed!' 
+    };
+  } else {
+    throw new Error(`Facebook post submission rejected by server. Response status: ${postResponse.status}. HTML preview: ${postHtml.substring(0, 300)}`);
+  }
 }
 
 async function postInstagramWithCookies(cookieStr: string, caption: string, imageUrl: string) {
   const sessionid = cookieStr.match(/sessionid=([^;]+)/)?.[1] || "";
-  const ds_user_id = cookieStr.match(/ds_user_id=([^;]+)/)?.[1] || "";
   if (!sessionid) {
     throw new Error("Missing required 'sessionid' in your pasted Instagram cookies. Please log in to Instagram.com and extract your cookies!");
   }
   
-  try {
-    const initRes = await fetch('https://www.instagram.com/api/v1/media/upload/', {
-      method: 'POST',
-      headers: {
-        'Cookie': `sessionid=${sessionid}; ds_user_id=${ds_user_id};`,
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 288.0.0.22.129',
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
-    const data = await initRes.json().catch(() => ({}));
-    if (initRes.ok && data.status === 'fail') {
-      throw new Error(data.message || "Instagram rejected the automated container init.");
-    }
-  } catch (e) {
-    console.log("[Instagram Cookies] Upload endpoint bypassed via headless session runner: " + e);
+  const ds_user_id = cookieStr.match(/ds_user_id=([^;]+)/)?.[1] || "";
+  const csrftoken = cookieStr.match(/csrftoken=([^;]+)/)?.[1] || "";
+
+  // 1. Download image to buffer
+  const imageResponse = await fetch(imageUrl || 'https://ukstander.shop/assets/placeholder.jpg');
+  if (!imageResponse.ok) {
+    throw new Error(`Failed to download product image from ${imageUrl}. Image is required for Instagram posts.`);
   }
+  const imageBuffer = await imageResponse.arrayBuffer();
+
+  // 2. Upload image to Instagram's upload endpoint
+  const uploadId = Date.now().toString();
+  const ruploadUrl = `https://www.instagram.com/rupload_igphoto/fb_uploader_${uploadId}`;
   
-  return {
-    success: true,
-    method: 'Headless Cookie Simulator',
-    message: `Successfully posted image to IG feed with sessionID: ${sessionid.substring(0, 8)}...`
+  const ruploadParams = {
+    media_type: 1,
+    upload_id: uploadId,
+    upload_media_height: 1080,
+    upload_media_width: 1080
   };
+
+  const uploadResponse = await fetch(ruploadUrl, {
+    method: 'POST',
+    headers: {
+      'Cookie': cookieStr,
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 288.0.0.22.129',
+      'X-Instagram-Rupload-Params': JSON.stringify(ruploadParams),
+      'X-Entity-Name': `fb_uploader_${uploadId}`,
+      'X-Entity-Length': imageBuffer.byteLength.toString(),
+      'X-Entity-Type': 'image/jpeg',
+      'Offset': '0',
+      'X-CSRFToken': csrftoken
+    },
+    body: Buffer.from(imageBuffer)
+  });
+
+  const uploadResult = await uploadResponse.json().catch(() => ({}));
+  if (!uploadResponse.ok || uploadResult.status === 'fail') {
+    throw new Error(`Instagram Image Upload Failed: ${uploadResult.message || JSON.stringify(uploadResult)}`);
+  }
+
+  // 3. Configure the uploaded media to publish it to feed
+  const configureUrl = 'https://www.instagram.com/api/v1/media/configure/';
+  
+  const payload = new URLSearchParams();
+  payload.append('upload_id', uploadId);
+  payload.append('caption', caption);
+  payload.append('timezone_offset', '0');
+  payload.append('source_type', '4');
+
+  const configureResponse = await fetch(configureUrl, {
+    method: 'POST',
+    headers: {
+      'Cookie': cookieStr,
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 288.0.0.22.129',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': csrftoken,
+      'X-Requested-With': 'XMLHttpRequest',
+      'Referer': 'https://www.instagram.com/'
+    },
+    body: payload.toString()
+  });
+
+  const configResult = await configureResponse.json().catch(() => ({}));
+  if (configureResponse.ok && configResult.status !== 'fail') {
+    return {
+      success: true,
+      method: 'Instagram Web API (Session Cookies)',
+      message: `Successfully published photo post to Instagram! Media ID: ${configResult.media?.id || 'Published'}`
+    };
+  } else {
+    throw new Error(`Instagram Publication Failed: ${configResult.message || JSON.stringify(configResult)}`);
+  }
 }
 
 async function postPinterestWithCookies(cookieStr: string, boardId: string, title: string, description: string, link: string, imageUrl: string) {
-  const pinterest_sess = cookieStr.match(/_pinterest_sess=([^;]+)/)?.[1] || "";
   const csrftoken = cookieStr.match(/csrftoken=([^;]+)/)?.[1] || "";
   
-  if (!pinterest_sess) {
-    throw new Error("Missing required '_pinterest_sess' cookie parameter in your pasted Pinterest cookies. Please extract your session cookies!");
-  }
+  const dataOption = {
+    board_id: boardId || "default",
+    image_url: imageUrl || 'https://ukstander.shop/assets/placeholder.jpg',
+    description: description,
+    link: link,
+    title: title
+  };
   
-  try {
-    const dataOption = {
-      board_id: boardId || "default",
-      image_url: imageUrl || 'https://ukstander.shop/assets/placeholder.jpg',
-      description: description,
-      link: link,
-      title: title
+  const payload = new URLSearchParams();
+  payload.append('source_url', '/pin/create/bookmarklet/');
+  payload.append('data', JSON.stringify({ options: dataOption }));
+  
+  const pinterestRes = await fetch('https://www.pinterest.com/resource/PinResource/create/', {
+    method: 'POST',
+    headers: {
+      'Cookie': cookieStr,
+      'X-CSRFToken': csrftoken,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://www.pinterest.com/',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: payload.toString()
+  });
+  
+  const resJson = await pinterestRes.json().catch(() => ({}));
+  if (pinterestRes.ok && resJson.resource_response?.status !== 'failure') {
+    return { 
+      success: true, 
+      method: 'Pinterest Web API (Session Cookies)', 
+      pinId: resJson.resource_response?.data?.id || 'Created',
+      message: `Pin successfully published to your Pinterest Board!` 
     };
-    
-    const payload = new URLSearchParams();
-    payload.append('source_url', '/pin/create/bookmarklet/');
-    payload.append('data', JSON.stringify({ options: dataOption }));
-    
-    const pinterestRes = await fetch('https://www.pinterest.com/resource/PinResource/create/', {
-      method: 'POST',
-      headers: {
-        'Cookie': `_pinterest_sess=${pinterest_sess}; csrftoken=${csrftoken};`,
-        'X-CSRFToken': csrftoken,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.pinterest.com/'
-      },
-      body: payload.toString()
-    });
-    
-    const resJson = await pinterestRes.json().catch(() => ({}));
-    if (pinterestRes.ok) {
-      return { success: true, method: 'Direct Cookie Web API', pinId: resJson.resource_response?.data?.id || 'Created' };
-    } else {
-      throw new Error(JSON.stringify(resJson) || `HTTP ${pinterestRes.status}`);
-    }
-  } catch (err: any) {
-    console.log("[Pinterest Cookies] Direct API hit blocked, running fallback session simulator:", err.message || err);
-    return {
-      success: true,
-      method: 'Headless Cookie Simulator',
-      message: `Pin successfully scheduled & published on Board ID: ${boardId || 'Main Board'} via session _pinterest_sess!`
-    };
+  } else {
+    const errorMsg = resJson.resource_response?.error?.message || JSON.stringify(resJson);
+    throw new Error(`Pinterest API Rejected Post: ${errorMsg}`);
   }
 }
 
@@ -984,10 +1036,8 @@ async function triggerSocialAutopost(type: 'blog' | 'product', payload: any) {
             const result = await postTweetWithCookies(settings.social_x_cookies, tweetText);
             await logOutcome('x', 'success', `Tweet successfully auto-published via saved browser cookies! Tweet ID/Result: ${result.tweetId || 'Verified'}`);
           } catch (cookieErr: any) {
-            console.error("[X Cookie Failed, falling back to simulator]", cookieErr);
-            await logOutcome('x', 'failed', `X Cookie Automation error: ${cookieErr.message || cookieErr}. Retrying with sandbox mode...`);
-            // Graceful fallback to sandbox simulation so it doesn't break queue
-            await logOutcome('x', 'success', `[Simulation Fallback] Tweet simulated: "${tweetText.substring(0, 80)}..."`);
+            console.error("[X Cookie Failed]", cookieErr);
+            await logOutcome('x', 'failed', `X Cookie Automation error: ${cookieErr.message || cookieErr}`);
           }
         } else {
           // Regular API Keys logic
@@ -1035,9 +1085,8 @@ async function triggerSocialAutopost(type: 'blog' | 'product', payload: any) {
             const result = await postFacebookWithCookies(settings.social_fb_cookies, message, link);
             await logOutcome('facebook', 'success', `Facebook auto-published via saved browser cookies! Method: ${result.method}. Details: ${result.message || 'Published successfully'}`);
           } catch (cookieErr: any) {
-            console.error("[Facebook Cookie Failed, falling back to simulator]", cookieErr);
-            await logOutcome('facebook', 'failed', `Facebook Cookie Automation error: ${cookieErr.message || cookieErr}. Retrying with sandbox mode...`);
-            await logOutcome('facebook', 'success', `[Simulation Fallback] Facebook Post simulated: "${message.substring(0, 80)}..."`);
+            console.error("[Facebook Cookie Failed]", cookieErr);
+            await logOutcome('facebook', 'failed', `Facebook Cookie Automation error: ${cookieErr.message || cookieErr}`);
           }
         } else {
           const pageId = settings.social_fb_page_id;
@@ -1087,9 +1136,8 @@ async function triggerSocialAutopost(type: 'blog' | 'product', payload: any) {
             const result = await postInstagramWithCookies(settings.social_instagram_cookies, caption, imageUrl || 'https://ukstander.shop/assets/placeholder.jpg');
             await logOutcome('instagram', 'success', `Instagram auto-published via saved browser cookies! Method: ${result.method}. Details: ${result.message || 'Published successfully'}`);
           } catch (cookieErr: any) {
-            console.error("[Instagram Cookie Failed, falling back to simulator]", cookieErr);
-            await logOutcome('instagram', 'failed', `Instagram Cookie Automation error: ${cookieErr.message || cookieErr}. Retrying with sandbox mode...`);
-            await logOutcome('instagram', 'success', `[Simulation Fallback] Instagram container simulated with image: ${imageUrl}`);
+            console.error("[Instagram Cookie Failed]", cookieErr);
+            await logOutcome('instagram', 'failed', `Instagram Cookie Automation error: ${cookieErr.message || cookieErr}`);
           }
         } else {
           const businessId = settings.social_instagram_business_id;
@@ -1155,9 +1203,8 @@ async function triggerSocialAutopost(type: 'blog' | 'product', payload: any) {
             const result = await postPinterestWithCookies(settings.social_pinterest_cookies, boardId, title, description.substring(0, 499), link, imageUrl || 'https://ukstander.shop/assets/placeholder.jpg');
             await logOutcome('pinterest', 'success', `Pinterest auto-published via saved browser cookies! Method: ${result.method}. Pin ID/Result: ${result.pinId || result.message || 'Published successfully'}`);
           } catch (cookieErr: any) {
-            console.error("[Pinterest Cookie Failed, falling back to simulator]", cookieErr);
-            await logOutcome('pinterest', 'failed', `Pinterest Cookie Automation error: ${cookieErr.message || cookieErr}. Retrying with sandbox mode...`);
-            await logOutcome('pinterest', 'success', `[Simulation Fallback] Pinterest Pin simulated successfully with image: ${imageUrl}`);
+            console.error("[Pinterest Cookie Failed]", cookieErr);
+            await logOutcome('pinterest', 'failed', `Pinterest Cookie Automation error: ${cookieErr.message || cookieErr}`);
           }
         } else {
           const boardId = settings.social_pinterest_board_id;
@@ -6081,6 +6128,10 @@ Return valid JSON ONLY (no comments) in this format:
   // POST Auto publish products uploaded in the last 24 hours to all enabled platforms
   app.post('/api/admin/social/autopost-last-24h', async (req, res) => {
     try {
+      // Get the max ID from social_autopost_logs before starting
+      const maxIdRes = await db.execute("SELECT MAX(id) as max_id FROM social_autopost_logs");
+      const preStartId = Number(maxIdRes.rows[0]?.max_id || 0);
+
       // Load current settings
       const settingsRes = await db.execute("SELECT * FROM global_settings");
       const settings: Record<string, string> = {};
@@ -6128,6 +6179,13 @@ Return valid JSON ONLY (no comments) in this format:
         successCount++;
       }
 
+      // Fetch any new logs that were inserted during this bulk run
+      const postLogsRes = await db.execute({
+        sql: "SELECT * FROM social_autopost_logs WHERE id > ? ORDER BY id ASC",
+        args: [preStartId]
+      });
+      const runLogs = postLogsRes.rows;
+
       const msg = isFallback
         ? `Note: No products were added in the last 24 hours, so we successfully auto-published your latest ${successCount} existing products to all active social platforms as a fallback simulation/live run!`
         : `Successfully triggered bulk autoposting queue for ${successCount} products imported or generated in the last 24 hours! Check the Activity Stream below for individual logs.`;
@@ -6136,7 +6194,8 @@ Return valid JSON ONLY (no comments) in this format:
         success: true,
         message: msg,
         count: successCount,
-        isFallback
+        isFallback,
+        logs: runLogs
       });
     } catch (err: any) {
       console.error("[Autopost Last 24h Route Error]", err);
